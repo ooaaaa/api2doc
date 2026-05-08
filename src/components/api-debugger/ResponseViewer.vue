@@ -443,9 +443,18 @@ watch(() => props.status, (newStatus) => {
   }
 })
 
-// 自动检测格式变化时重置 viewFormat
+// 自动检测格式变化时选中对应类型
 watch(() => props.result, () => {
-  viewFormat.value = 'auto'
+  // 根据检测到的格式自动选中
+  const ct = props.responseHeaders?.['content-type'] || ''
+  if (props.isImageResponse) { viewFormat.value = 'image'; return }
+  if (props.isBinaryResponse) { viewFormat.value = 'binary'; return }
+  if (ct.includes('application/json')) { viewFormat.value = 'json'; return }
+  if (ct.includes('text/html')) { viewFormat.value = 'html-render'; return }
+  if (ct.includes('application/xml') || ct.includes('text/xml')) { viewFormat.value = 'xml'; return }
+  // 尝试 JSON 解析
+  try { JSON.parse(props.result); viewFormat.value = 'json'; return } catch { /* ignore */ }
+  viewFormat.value = 'text'
 })
 </script>
 

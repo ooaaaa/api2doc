@@ -38,7 +38,30 @@ function devProxyPlugin(): Plugin {
             headers['Authorization'] = Array.isArray(customAuth) ? customAuth[0] : customAuth
           }
 
-          const resp = await fetch(targetUrl, { headers })
+          let resp = await fetch(targetUrl, { headers, redirect: 'follow' })
+
+          // 如果返回的是 HTML（可能是 Swagger UI 页面），尝试常见的 JSON 端点
+          const contentType = resp.headers.get('content-type') || ''
+          if (resp.ok && contentType.includes('text/html')) {
+            const baseUrl = new URL(targetUrl)
+            const fallbackPaths = [
+              '/openapi.json',
+              '/v3/api-docs',
+              '/swagger.json',
+              '/api-docs.json',
+            ]
+            for (const path of fallbackPaths) {
+              const fallbackUrl = `${baseUrl.origin}${path}`
+              if (fallbackUrl === targetUrl) continue
+              const fallbackResp = await fetch(fallbackUrl, { headers })
+              const fallbackCt = fallbackResp.headers.get('content-type') || ''
+              if (fallbackResp.ok && fallbackCt.includes('application/json')) {
+                resp = fallbackResp
+                break
+              }
+            }
+          }
+
           if (!resp.ok) {
             res.statusCode = resp.status
             res.setHeader('Content-Type', 'application/json')
@@ -46,8 +69,8 @@ function devProxyPlugin(): Plugin {
             return
           }
 
-          const contentType = resp.headers.get('content-type') || 'application/json'
-          res.setHeader('Content-Type', contentType)
+          const respContentType = resp.headers.get('content-type') || 'application/json'
+          res.setHeader('Content-Type', respContentType)
           res.end(await resp.text())
         } catch (err: any) {
           res.statusCode = 502

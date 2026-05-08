@@ -9,7 +9,6 @@
           :services="services"
           :active-service-id="activeServiceId"
           :is-proxy-mode="isProxyMode"
-          :has-selected-api="!!selectedApi"
           @update:search-text="searchText = $event"
           @go-home="goToHome"
           @switch-service="$emit('switchService', $event)"
@@ -19,8 +18,6 @@
           @import-config="$emit('importConfig', $event)"
           @export-config="$emit('exportConfig')"
           @open-debugger="$emit('openDebugger')"
-          @copy-markdown="handleCopyMarkdown"
-          @download-word="handleDownloadWord"
         />
         
         <a-layout class="main-layout">
@@ -70,7 +67,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { message, theme } from 'ant-design-vue'
+import { theme } from 'ant-design-vue'
 import { 
   useSwaggerData, 
   useApiParser, 
@@ -80,7 +77,6 @@ import {
 } from '../composables'
 import { DEFAULT_THEME } from '../constants'
 import type { ServiceConfig } from '../config'
-import { downloadCurrentApiAsWord, copyCurrentApiAsMarkdown } from '../utils/doc-export'
 import AppHeader from './layout/AppHeader.vue'
 import AppSidebar from './layout/AppSidebar.vue'
 import AppContent from './layout/AppContent.vue'
@@ -263,19 +259,6 @@ const getFilteredApisByTag = (tagPath: string) => {
 // 处理菜单点击
 const handleMenuClickWrapper = (event: any) => {
   handleMenuClick(event, allApis.value)
-}
-
-// 文档导出功能
-const handleCopyMarkdown = () => {
-  if (!selectedApi.value) return
-  const md = copyCurrentApiAsMarkdown(selectedApi.value, baseUrl.value)
-  navigator.clipboard.writeText(md)
-  message.success('Markdown 已复制到剪贴板')
-}
-
-const handleDownloadWord = () => {
-  if (!selectedApi.value) return
-  downloadCurrentApiAsWord(selectedApi.value.summary || '接口文档')
 }
 
 // 生命周期钩子

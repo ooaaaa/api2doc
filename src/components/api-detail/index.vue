@@ -5,7 +5,7 @@
       <a-tabs v-model:activeKey="activeMainTab" class="main-tabs-top">
         <!-- 文档 Tab -->
         <a-tab-pane key="doc" tab="文档">
-          <ApiHeader :api="api" @copy-path="copyPath" />
+          <ApiHeader :api="api" @copy-path="copyPath" @copy-markdown="handleCopyMarkdown" @download-word="handleDownloadWord" />
           
           <!-- 接口类型提示 -->
           <a-alert v-if="apiType !== 'http'" :type="getApiTypeAlertType()" show-icon style="margin-bottom: 16px">
@@ -167,6 +167,7 @@ import ParameterTable from './ParameterTable.vue'
 import { useApiParser } from '../../composables/useApiParser'
 import { useCodeGenerator } from './composables/useCodeGenerator'
 import { getExampleValue, generateExampleFromTree } from '../../utils/example-utils'
+import { downloadCurrentApiAsWord, copyCurrentApiAsMarkdown } from '../../utils/doc-export'
 
 const props = defineProps<{
   api: any
@@ -514,6 +515,17 @@ const getMethodColor = (method: string) => {
 const copyPath = () => {
   navigator.clipboard.writeText(props.api.path)
   message.success('路径已复制')
+}
+
+// 文档导出
+const handleCopyMarkdown = () => {
+  const md = copyCurrentApiAsMarkdown(props.api, props.baseUrl)
+  navigator.clipboard.writeText(md)
+  message.success('Markdown 已复制到剪贴板')
+}
+
+const handleDownloadWord = () => {
+  downloadCurrentApiAsWord(props.api.summary || '接口文档')
 }
 
 // 获取API类型的Alert类型

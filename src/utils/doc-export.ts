@@ -13,7 +13,8 @@ const WORD_HTML_HEADER = `<html xmlns:o="urn:schemas-microsoft-com:office:office
   <meta charset="utf-8">
   <style>
     body { font-family: "Microsoft YaHei", sans-serif; font-size: 14px; line-height: 1.6; color: #333; }
-    h2 { font-size: 18px; margin-top: 0; }
+    h1 { font-size: 22px; border-bottom: 2px solid #10b981; padding-bottom: 8px; }
+    h2 { font-size: 16px; margin-top: 20px; }
     h3 { font-size: 14px; margin-top: 16px; color: #333; }
     table { border-collapse: collapse; width: 100%; margin: 8px 0; }
     th, td { border: 1px solid #d1d5db; padding: 6px 10px; text-align: left; font-size: 12px; }
@@ -63,21 +64,51 @@ function captureDocTabHtml(): string | null {
   // 克隆节点
   const clone = tabPane.cloneNode(true) as HTMLElement
 
-  // 移除交互元素：按钮、link 类操作
-  clone.querySelectorAll('.section-actions, .copy-path-btn, .copy-btn, .ant-btn').forEach(el => el.remove())
+  // 移除交互元素：按钮、link 类操作、导出按钮
+  clone.querySelectorAll('.section-actions, .copy-path-btn, .copy-btn, .ant-btn, .doc-action-link, .action-divider').forEach(el => el.remove())
 
   // 展开所有折叠的示例区域（如果有隐藏的）
   clone.querySelectorAll('.example-section').forEach(el => {
     ;(el as HTMLElement).style.display = 'block'
   })
 
+  // 将 .section-title 转换为 h2 标签，让 Word 能识别为目录项
+  clone.querySelectorAll('.section-title').forEach(el => {
+    const h2 = document.createElement('h2')
+    // 只取第一个 span 的文本（标题文字），忽略操作按钮
+    const titleSpan = el.querySelector('span')
+    h2.textContent = titleSpan?.textContent?.trim() || el.textContent?.trim() || ''
+    el.replaceWith(h2)
+  })
+
+  // 将 .api-summary (h2) 转为 h1 作为文档主标题
+  clone.querySelectorAll('.api-summary').forEach(el => {
+    const h1 = document.createElement('h1')
+    h1.textContent = el.textContent?.trim() || ''
+    el.replaceWith(h1)
+  })
+
   // 移除 CodeMirror 编辑器的多余 DOM，保留纯文本
   clone.querySelectorAll('.cm-editor').forEach(editor => {
     const content = editor.querySelector('.cm-content')
     if (content) {
+      // 从每个 .cm-line 中提取文本并用换行连接
+      const lines = content.querySelectorAll('.cm-line')
+      let text = ''
+      if (lines.length > 0) {
+        text = Array.from(lines).map(line => line.textContent || '').join('\n')
+      } else {
+        text = content.textContent || ''
+      }
+      // 尝试格式化 JSON
+      try {
+        const parsed = JSON.parse(text)
+        text = JSON.stringify(parsed, null, 2)
+      } catch { /* 非 JSON 保持原样 */ }
+
       const pre = document.createElement('pre')
       const code = document.createElement('code')
-      code.textContent = content.textContent || ''
+      code.textContent = text
       pre.appendChild(code)
       editor.replaceWith(pre)
     } else {
@@ -274,4 +305,14 @@ function formatJson(text: string): string {
   } catch {
     return text
   }
+}
+
+/**
+ * HTML 文本转义
+ */
+function escapeHtmlText(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }

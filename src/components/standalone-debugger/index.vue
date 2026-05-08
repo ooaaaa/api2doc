@@ -8,6 +8,12 @@
         <span class="toolbar-title">API 调试器</span>
       </div>
       <div class="toolbar-right">
+        <a-button size="small" @click="openCurlImport" class="action-btn">
+          导入 cURL
+        </a-button>
+        <a-button size="small" @click="copyAsCurl" class="action-btn">
+          复制 cURL
+        </a-button>
         <a-button size="small" type="primary" @click="resetAll" class="action-btn">
           重置
         </a-button>
@@ -21,6 +27,12 @@
     <div v-if="embedded" class="embedded-header">
       <span class="header-label">请求配置</span>
       <div class="header-actions">
+        <a-button size="small" @click="openCurlImport" class="action-btn">
+          导入 cURL
+        </a-button>
+        <a-button size="small" @click="copyAsCurl" class="action-btn">
+          复制 cURL
+        </a-button>
         <a-button size="small" type="primary" @click="resetAll" class="action-btn">
           重置
         </a-button>
@@ -242,6 +254,28 @@
         @download-binary="downloadBinary"
       />
     </a-modal>
+
+    <!-- cURL 导入弹窗 -->
+    <a-modal
+      v-model:open="curlImportVisible"
+      title="导入 cURL"
+      :width="600"
+      :mask-closable="false"
+      :keyboard="false"
+      @ok="handleCurlImport"
+      ok-text="导入"
+      cancel-text="取消"
+    >
+      <p class="curl-import-tip">粘贴 cURL 命令，将自动解析为请求参数</p>
+      <a-textarea
+        v-model:value="curlImportText"
+        :rows="10"
+        placeholder="curl -X POST 'https://api.example.com/users' \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;name&quot;: &quot;test&quot;}'"
+        class="curl-import-textarea"
+      />
+    </a-modal>
   </div>
 </template>
 
@@ -259,6 +293,7 @@ import { useSSE } from '../api-debugger/composables/useSSE'
 import { parseApiToParams, detectInterfaceType, saveToStorage, restoreFromStorage, clearStorage } from '../api-debugger/composables/useApiToParams'
 import type { DebuggerParameter, DebuggerFormField, InterfaceType } from '../api-debugger/composables/useApiToParams'
 import type { UploadChangeParam } from 'ant-design-vue'
+import { parseCurl } from '../../utils/curl-parser'
 
 interface Props {
   embedded?: boolean
@@ -644,6 +679,161 @@ const resetAll = () => {
   resetResponseState()
 }
 
+// ========== cURL 导入/导出 ==========
+const curlImportVisible = ref(false)
+const curlImportText = ref('')
+
+const openCurlImport = () => {
+  curlImportText.value = ''
+  curlImportVisible.value = true
+}
+
+const handleCurlImport = () => {
+  const text = curlImportText.value.trim()
+  if (!text) { message.warning('请粘贴 cURL 命令'); return }
+
+  try {
+    const parsed = parseCurl(text)
+
+    // 填充方法
+    currentMethod.value = parsed.method
+
+    // 填充 URL
+    if (props.api) {
+      editableUrl.value = parsed.url
+    } else {
+      requestUrl.value = parsed.url
+      editableUrl.value = parsed.url
+    }
+
+    // 填充 Query 参数
+    if (parsed.queryParams.length > 0) {
+      queryParameters.value = parsed.queryParams.map(p => ({ name: p.name, value: p.value, enabled: true }))
+      expandedSections.value.query = true
+    }
+
+    // 填充请求头
+    if (parsed.headers.length > 0) {
+      headerParameters.value = parsed.headers.map(h => ({ name: h.name, value: h.value, enabled: true }))
+      expandedSections.value.headers = true
+    }
+
+    // 填充请求体
+    if (parsed.body) {
+      bodyContent.value = parsed.body
+      activeBodyTab.value = parsed.bodyFormat
+      expandedSections.value.body = true
+    }
+
+    curlImportVisible.value = false
+    message.success('cURL 导入成功')
+  } catch {
+    message.error('cURL 解析失败，请检查格式')
+  }
+}
+
+const copyAsCurl = async () => {
+  const url = getFullUrl()
+  if (!url) { message.warning('请先填写请求 URL'); return }
+
+  let cmd = `curl -X ${currentMethod.value} '${url}'`
+
+  // 添加自定义请求头
+  const enabledHeaders = headerParameters.value.filter(h => h.enabled && h.name && h.value)
+  enabledHeaders.forEach(h => {
+    cmd += ` \\\n  -H '${h.name}: ${h.value}'`
+  })
+
+  // 添加请求体
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(currentMethod.value)) {
+    const ct = getContentType()
+    if (ct) {
+      cmd += ` \\\n  -H 'Content-Type: ${ct}'`
+    }
+
+    if (activeBodyTab.value === 'form') {
+      const enabledFields = formFields.value.filter(f => f.enabled && f.name && f.type === 'text')
+      if (enabledFields.length > 0) {
+        const formData = enabledFields.map(f => `${encodeURIComponent(f.name)}=${encodeURIComponent(f.value)}`).join('&')
+        cmd += ` \\\n  -d '${formData}'`
+      }
+    } else if (bodyContent.value) {
+      // 压缩 JSON 为单行
+      let bodyStr = bodyContent.value
+      if (activeBodyTab.value === 'json') {
+        try { bodyStr = JSON.stringify(JSON.parse(bodyStr)) } catch { /* 保持原样 */ }
+      }
+      cmd += ` \\\n  -d '${bodyStr}'`
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(cmd)
+    message.success('cURL 已复制到剪贴板')
+  } catch {
+    message.error('复制失败')
+  }
+}
+
 onUnmounted(() => { closeAllConnections(true) })
 </script>
 
+
+<style scoped>
+.standalone-debugger { display: flex; flex-direction: column; height: 100vh; background: #fff; overflow: hidden; }
+.debugger-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--color-border-light, #f0f0f0); flex-shrink: 0; }
+.toolbar-left { display: flex; align-items: center; gap: 12px; }
+.toolbar-divider { width: 1px; height: 20px; background: var(--color-border, #e5e7eb); }
+.toolbar-title { font-size: 14px; font-weight: 500; color: var(--color-text-secondary, #6b7280); }
+.toolbar-right { display: flex; align-items: center; gap: 8px; }
+.toolbar-btn { font-size: 12px; color: var(--color-text-secondary, #6b7280); }
+.action-btn { font-size: 12px; }
+.back-link { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; transition: all 0.15s ease; }
+.back-link:hover { background: rgba(16, 185, 129, 0.06); color: #10b981; }
+
+.embedded-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.header-label { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.header-actions { display: flex; gap: 6px; }
+
+.url-section { padding: 12px 20px; border-bottom: 1px solid var(--color-border-light, #f0f0f0); flex-shrink: 0; }
+.url-section-embedded { padding: 0; border-bottom: none; margin-bottom: 8px; }
+.url-bar { display: flex; align-items: center; gap: 8px; }
+.method-select { flex-shrink: 0; width: 110px; }
+.url-input { flex: 1; }
+:deep(.url-input .ant-input) { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+.send-btn { flex-shrink: 0; }
+
+.debugger-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.debugger-body-embedded { flex-direction: column; }
+.request-panel { width: 100%; border-bottom: 1px solid var(--color-border-light, #f0f0f0); overflow-y: auto; }
+.request-panel-embedded { overflow-y: visible; }
+.response-panel { width: 100%; flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+.response-panel-embedded { border-top: 1px solid var(--color-border-light, #f0f0f0); padding-top: 12px; }
+
+.request-sections { padding: 8px 0; }
+.request-section { border-bottom: 1px solid var(--color-border-light, #f0f0f0); }
+.request-section:last-child { border-bottom: none; }
+.section-header { display: flex; align-items: center; padding: 10px 20px; cursor: pointer; user-select: none; transition: background 0.15s ease; }
+.request-panel-embedded .section-header { padding: 10px 0; }
+.section-header:hover { background: var(--color-bg-secondary, #f9fafb); }
+.collapse-icon { font-size: 10px; color: #9ca3af; margin-right: 8px; transition: transform 0.2s ease; display: inline-block; }
+.collapse-icon.expanded { transform: rotate(90deg); }
+.section-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.section-badge { font-size: 11px; padding: 1px 6px; margin-left: 8px; border-radius: 10px; background: rgba(16, 185, 129, 0.08); color: #10b981; }
+.section-header-actions { margin-left: auto; }
+.body-format-select { width: 80px; }
+.section-content { padding: 8px 20px 16px; }
+.request-panel-embedded .section-content { padding: 0 0 12px; }
+
+/* 隐藏 RequestBody 内部的 tab 栏 */
+.section-content :deep(.body-sub-tabs .ant-tabs-nav) { display: none; }
+
+.ws-message-section { padding: 8px 20px 16px; }
+
+.empty-response { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px; padding: 40px; }
+.empty-icon { margin-bottom: 16px; opacity: 0.6; }
+.empty-text { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
+
+.curl-import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+.curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+</style>

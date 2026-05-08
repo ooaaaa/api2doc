@@ -38,36 +38,8 @@
         </a-input>
       </div>
 
-      <!-- 右侧：导出操作 + 调试器 + GitHub 项目链接 -->
+      <!-- 右侧：调试器 + GitHub 项目链接 -->
       <div class="header-right">
-        <a-tooltip title="复制当前接口为 Markdown">
-          <a 
-            class="header-action-link"
-            :class="{ disabled: !hasSelectedApi }"
-            @click="hasSelectedApi && $emit('copyMarkdown')"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            <span>复制 MD</span>
-          </a>
-        </a-tooltip>
-        <a-tooltip title="下载当前接口为 Word 文档">
-          <a 
-            class="header-action-link"
-            :class="{ disabled: !hasSelectedApi }"
-            @click="hasSelectedApi && $emit('downloadWord')"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>下载 Word</span>
-          </a>
-        </a-tooltip>
-        <div class="header-divider"></div>
         <a 
           class="debugger-link"
           @click="$emit('openDebugger')"
@@ -278,7 +250,6 @@ interface Props {
   services: ServiceConfig[]
   activeServiceId: string | null
   isProxyMode: boolean
-  hasSelectedApi: boolean
 }
 
 interface Emits {
@@ -291,8 +262,6 @@ interface Emits {
   'importConfig': [json: string]
   'exportConfig': []
   'openDebugger': []
-  'copyMarkdown': []
-  'downloadWord': []
 }
 
 const props = defineProps<Props>()
@@ -516,36 +485,6 @@ function readAndImportFile(file: File) {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-}
-
-.header-action-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-
-.header-action-link:hover {
-  color: var(--color-primary);
-  background: var(--color-primary-bg, rgba(16, 185, 129, 0.08));
-}
-
-.header-action-link.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.header-action-link.disabled:hover {
-  color: var(--color-text-secondary);
-  background: transparent;
 }
 
 .debugger-link {
