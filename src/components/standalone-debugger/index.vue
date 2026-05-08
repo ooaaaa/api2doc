@@ -1,5 +1,5 @@
 <template>
-  <div class="standalone-debugger">
+  <div class="standalone-debugger" :class="{ 'is-embedded': embedded }">
     <!-- 顶部标题栏（仅独立页面模式显示） -->
     <div v-if="!embedded" class="debugger-toolbar">
       <div class="toolbar-left">
@@ -451,6 +451,16 @@ const initFromApi = () => {
   if (savedBody) bodyContent.value = savedBody as string
 }
 
+// 重置响应状态（需要在 watch 之前定义，避免 TDZ 错误）
+const resetResponseState = () => {
+  responseResult.value = ''; responseStatus.value = 0; responseHeaders.value = {}; responseTiming.value = {}; isBeautified.value = false
+  isImageResponse.value = false; if (imagePreviewUrl.value) URL.revokeObjectURL(imagePreviewUrl.value)
+  imagePreviewUrl.value = ''; imageBlob.value = null; imageInfo.value = ''
+  isBinaryResponse.value = false; binaryBlob.value = null; binaryContentType.value = ''; binarySize.value = ''; binaryFilename.value = ''
+}
+
+const closeAllConnections = (silent = false) => { http.abort(); ws.close(silent); sse.close(silent) }
+
 watch(() => props.api, () => {
   if (props.api) { initFromApi(); resetResponseState(); closeAllConnections(true) }
 }, { immediate: true })
@@ -645,15 +655,7 @@ const extractFilename = (r: Response): string => {
   return ''
 }
 
-const closeAllConnections = (silent = false) => { http.abort(); ws.close(silent); sse.close(silent) }
-
 // ========== 状态管理 ==========
-const resetResponseState = () => {
-  responseResult.value = ''; responseStatus.value = 0; responseHeaders.value = {}; responseTiming.value = {}; isBeautified.value = false
-  isImageResponse.value = false; if (imagePreviewUrl.value) URL.revokeObjectURL(imagePreviewUrl.value)
-  imagePreviewUrl.value = ''; imageBlob.value = null; imageInfo.value = ''
-  isBinaryResponse.value = false; binaryBlob.value = null; binaryContentType.value = ''; binarySize.value = ''; binaryFilename.value = ''
-}
 
 const toggleSection = (s: keyof typeof expandedSections.value) => { expandedSections.value[s] = !expandedSections.value[s] }
 const addQueryParam = () => { queryParameters.value.push({ name: '', value: '', enabled: true }) }
@@ -781,6 +783,7 @@ onUnmounted(() => { closeAllConnections(true) })
 
 <style scoped>
 .standalone-debugger { display: flex; flex-direction: column; height: 100vh; background: #fff; overflow: hidden; }
+.standalone-debugger.is-embedded { height: auto; min-height: 400px; overflow: visible; }
 .debugger-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--color-border-light, #f0f0f0); flex-shrink: 0; }
 .toolbar-left { display: flex; align-items: center; gap: 12px; }
 .toolbar-divider { width: 1px; height: 20px; background: var(--color-border, #e5e7eb); }
@@ -804,7 +807,7 @@ onUnmounted(() => { closeAllConnections(true) })
 .send-btn { flex-shrink: 0; }
 
 .debugger-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-.debugger-body-embedded { flex-direction: column; }
+.debugger-body-embedded { flex-direction: column; overflow: visible; }
 .request-panel { width: 100%; border-bottom: 1px solid var(--color-border-light, #f0f0f0); overflow-y: auto; }
 .request-panel-embedded { overflow-y: visible; }
 .response-panel { width: 100%; flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
