@@ -1,0 +1,222 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "用户管理 API",
+    "version": "1.0.0",
+    "description": "简单的用户管理接口示例，包含查询和添加两个接口。"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3010",
+      "description": "本地开发服务器"
+    }
+  ],
+  "tags": [
+    {
+      "name": "用户管理",
+      "description": "用户相关接口"
+    }
+  ],
+  "paths": {
+    "/api/users": {
+      "get": {
+        "tags": ["用户管理"],
+        "summary": "查询用户列表",
+        "description": "分页查询用户列表，支持按关键词搜索",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "搜索关键词",
+            "schema": {
+              "type": "string",
+              "example": "张三"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "每页条数",
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "list": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/User"
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "example": 50
+                        },
+                        "page": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "example": 10
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["用户管理"],
+        "summary": "添加用户",
+        "description": "创建一个新用户",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "email"],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "用户名",
+                    "example": "zhangsan"
+                  },
+                  "nickname": {
+                    "type": "string",
+                    "description": "昵称",
+                    "example": "张三"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "邮箱",
+                    "example": "zhangsan@example.com"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "手机号",
+                    "example": "13800138000"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "创建成功"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "用户名和邮箱为必填项"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "username": {
+            "type": "string",
+            "example": "zhangsan"
+          },
+          "nickname": {
+            "type": "string",
+            "example": "张三"
+          },
+          "email": {
+            "type": "string",
+            "example": "zhangsan@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "example": "13800138000"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-01-01T08:00:00Z"
+          }
+        }
+      }
+    }
+  }
+}

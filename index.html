@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>api2doc - 优雅的 API 文档工具</title>
+    <meta name="description" content="api2doc - 基于 OpenAPI/Swagger 的现代化 API 文档展示工具" />
+    
+    <!-- 性能优化 -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- DNS预解析 -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
+    <!-- 预连接 -->
+    <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin />
+    <!-- 资源提示 -->
+    <link rel="prefetch" as="script" />
+    
+    <style>
+      :root {
+        /* 主色 - 沉稳的绿 */
+        --color-primary: #10b981;
+        --color-primary-hover: #059669;
+        --color-primary-bg: rgba(16, 185, 129, 0.06);
+        --color-link: #059669;
+
+        /* 文字 - 高对比度层次 */
+        --color-text: #111827;
+        --color-text-secondary: #6b7280;
+        --color-text-muted: #9ca3af;
+
+        /* 背景 - 纯净留白 */
+        --color-bg: #ffffff;
+        --color-bg-secondary: #f9fafb;
+        --color-bg-tertiary: #f3f4f6;
+
+        /* 边框 - 极淡 */
+        --color-border: #e5e7eb;
+        --color-border-light: #f3f4f6;
+
+        /* 语义色 */
+        --color-error-text: #dc2626;
+        --color-error-bg: #fef2f2;
+        --color-success-text: #16a34a;
+        --color-success-bg: #f0fdf4;
+        --color-warning-text: #d97706;
+        --color-warning-bg: #fffbeb;
+        --color-info-text: #2563eb;
+        --color-info-bg: #eff6ff;
+
+        /* 过渡 */
+        --transition-fast: 0.15s ease;
+        --transition-normal: 0.2s ease;
+
+        /* 圆角 */
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+
+        /* Z-index 层级 */
+        --z-dropdown: 100;
+        --z-sticky: 200;
+        --z-sidebar: 300;
+        --z-modal-backdrop: 400;
+        --z-modal: 500;
+        --z-tooltip: 600;
+        --z-toast: 700;
+      }
+
+      * {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      }
+      
+      /* 代码字体 */
+      code, pre, .code-font {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--color-text);
+        background: var(--color-bg);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: 'kern' 1;
+        font-kerning: normal;
+      }
+      
+      h1, h2, h3, h4, h5, h6 {
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--color-text);
+      }
+
+      /* 滚动条 - 淡绿色 */
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.25); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.45); }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
