@@ -9,6 +9,7 @@
           :services="services"
           :active-service-id="activeServiceId"
           :is-proxy-mode="isProxyMode"
+          :has-selected-api="false"
           @update:search-text="() => {}"
           @go-home="() => {}"
           @switch-service="$emit('switchService', $event)"
@@ -17,13 +18,14 @@
           @remove-service="$emit('removeService', $event)"
           @import-config="$emit('importConfig', $event)"
           @export-config="$emit('exportConfig')"
+          @open-debugger="$emit('openDebugger')"
         />
 
         <!-- 空状态引导内容 -->
         <a-layout-content class="empty-guide-content">
           <div class="empty-guide-card">
             <div class="empty-guide-icon">
-              <NiceApiDocLogo :size="48" :show-text="false" />
+              <Api2DocLogo :size="48" :show-text="false" />
             </div>
             <h2 class="empty-guide-title">添加 Swagger 文档地址开始使用</h2>
             <p class="empty-guide-desc">
@@ -61,7 +63,7 @@
 <script setup lang="ts">
 import type { ServiceConfig } from '../../config'
 import AppHeader from '../layout/AppHeader.vue'
-import NiceApiDocLogo from '../NiceApiDocLogo.vue'
+import Api2DocLogo from '../Api2DocLogo.vue'
 
 defineProps<{
   services: ServiceConfig[]
@@ -76,6 +78,7 @@ defineEmits<{
   removeService: [id: string]
   importConfig: [json: string]
   exportConfig: []
+  openDebugger: []
 }>()
 </script>
 

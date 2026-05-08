@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { resolve } from 'path'
 import type { Plugin } from 'vite'
 
 /**
@@ -129,6 +130,10 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        debugger: resolve(__dirname, 'debugger.html'),
+      },
       output: {
         manualChunks: {
           'vue-vendor': ['vue'],

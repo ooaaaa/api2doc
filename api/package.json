@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "dev:watch": "nodemon --watch routes --watch middleware --watch config server.js",
-    "test:nice-apidoc": "node test-nice-apidoc.js"
+    "test:api2doc": "node test-api2doc.js"
   },
   "keywords": [
     "express",

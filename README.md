@@ -1,13 +1,21 @@
-# Nice API Doc
+# api2doc
 
-美观的 API 文档查看器，替代 Swagger UI。
+美观、易用的 API 文档查看器，Swagger UI 的现代替代方案。
 
-内置本地代理解决跨域，支持管理多个服务，配置持久化到浏览器本地存储。
+业界大量项目使用 Swagger/OpenAPI 管理接口文档，但默认 UI 体验粗糙（十分难用），所以我写了这个项目。
+
+
+api2doc 提供更友好的交互和阅读体验：
+- 对大模型友好，支持 SSE / HTTP Streamable 协议
+- 支持 WebSocket 协议
+- 支持多项目、多 Swagger URL 统一管理
+- 内置本地代理，免去浏览器跨域配置
 
 ## 快速使用
 
 ```bash
-npx nice-apidoc
+# 需要提前安装nodejs运行环境
+npx api2doc
 ```
 
 启动后自动打开浏览器，点击右上角 `+` 打开服务管理，添加你的 Swagger/OpenAPI JSON 地址即可。
@@ -15,9 +23,8 @@ npx nice-apidoc
 ## 命令行选项
 
 ```bash
-npx nice-apidoc                   # 默认端口 4523，自动打开浏览器
-npx nice-apidoc --port 8080       # 自定义端口
-npx nice-apidoc --no-open         # 不自动打开浏览器
+npx api2doc                   # 默认端口 5200，自动打开浏览器
+npx api2doc --port 8080       # 自定义端口
 ```
 
 ## 功能
@@ -29,6 +36,11 @@ npx nice-apidoc --no-open         # 不自动打开浏览器
 - 配置导入/导出，方便换浏览器或分享给团队
 - 支持 Swagger 2.0 和 OpenAPI 3.0/3.1
 - 搜索过滤、代码示例生成
+
+## 预览截图
+![alt text](imgs/image.png)
+![alt text](imgs/image-1.png)
+![alt text](imgs/image-2.png)
 
 ## 服务管理
 
@@ -45,7 +57,7 @@ npx nice-apidoc --no-open         # 不自动打开浏览器
 
 ## 工作原理
 
-`npx nice-apidoc` 在本地启动一个轻量 Node.js 服务：
+`npx api2doc` 在本地启动一个轻量 Node.js 服务：
 
 1. 提供前端静态页面
 2. `/proxy?url=xxx` - 代理转发 OpenAPI JSON 请求（解决跨域）
@@ -71,12 +83,63 @@ npx nice-apidoc --no-open         # 不自动打开浏览器
 pnpm install        # 安装依赖
 pnpm dev            # 启动 Vite 开发服务器（端口 5200）
 pnpm build          # 构建前端产物到 dist/
-pnpm serve          # 本地测试 CLI 模式（端口 4523）
+pnpm serve          # 本地测试 CLI 模式（端口 5200）
+```
+
+### 本地开发说明
+
+项目包含两部分：前端（根目录）和后台 API 示例服务（`api/` 目录）。
+
+`api/` 是一个基于 Express + Swagger 的接口示例服务，用于本地开发和调试时提供真实的 OpenAPI 数据源。
+
+#### 启动步骤
+
+1. 启动后台 API 服务：
+
+```bash
+cd api
+pnpm install        # 首次需要安装依赖
+pnpm dev            # 启动 API 服务（端口 3010）
+```
+
+启动后可访问：
+- Swagger UI：http://localhost:3010/api-docs
+- OpenAPI JSON：http://localhost:3010/openapi.json
+
+2. 启动前端开发服务器（另开终端）：
+
+```bash
+pnpm dev            # 启动 Vite 开发服务器（端口 5200）
+```
+
+或使用根目录的快捷命令同时启动 API 服务：
+
+```bash
+pnpm dev:api        # 仅启动 API 服务
+```
+
+3. 在浏览器中打开 http://localhost:5200，添加 `http://localhost:3010/openapi.json` 作为服务地址即可联调。
+
+#### 前后端联调
+
+前端 Vite 开发服务器内置了代理插件（见 `vite.config.ts` 中的 `devProxyPlugin`），提供 `/proxy` 和 `/proxy/api` 接口，与生产环境 CLI 模式行为一致。所有对外部 API 的请求都通过本地代理转发，无需额外配置 CORS。
+
+#### 目录结构
+
+```
+api/
+├── config/          # 配置（端口、CORS、Swagger 定义）
+├── middleware/      # 中间件（日志、错误处理）
+├── routes/          # 路由模块（按功能拆分）
+├── public/          # 静态文件
+├── uploads/         # 上传文件存储
+└── server.js        # 入口文件
 ```
 
 ## 技术栈
 
 - 前端：Vue 3 + TypeScript + Ant Design Vue + CodeMirror
+- 后台示例：Express + swagger-jsdoc + swagger-ui-express
 - CLI：Node.js 原生 http + sirv（唯一运行时依赖，~20KB）
 - 构建：Vite
 
@@ -87,7 +150,7 @@ pnpm build          # 构建前端
 npm publish         # 发布到 npm
 ```
 
-发布后用户通过 `npx nice-apidoc` 即可使用，无需全局安装。
+发布后用户通过 `npx api2doc` 即可使用，无需全局安装。
 
 ## License
 

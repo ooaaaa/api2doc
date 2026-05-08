@@ -4,7 +4,7 @@
       <!-- 上半部分：api2doc 信息 -->
       <div class="nice-section">
         <div class="nice-brand">
-          <NiceApiDocLogo :size="48" :show-text="false" />
+          <Api2DocLogo :size="48" :show-text="false" />
           <h1 class="nice-title">api2doc</h1>
         </div>
         <p class="nice-subtitle">开发者需要什么，我们就造什么</p>
@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { marked } from 'marked'
-import NiceApiDocLogo from '../NiceApiDocLogo.vue'
+import Api2DocLogo from '../Api2DocLogo.vue'
 
 interface Props {
   apiInfo: any

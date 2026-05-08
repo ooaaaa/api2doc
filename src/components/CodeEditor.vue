@@ -16,11 +16,13 @@ import { EditorState } from '@codemirror/state'
 import { json } from '@codemirror/lang-json'
 import { html } from '@codemirror/lang-html'
 import { xml } from '@codemirror/lang-xml'
+import { StreamLanguage } from '@codemirror/language'
+import { shell } from '@codemirror/legacy-modes/mode/shell'
 import { oneDark } from '@codemirror/theme-one-dark'
 
 interface Props {
   modelValue: string
-  language?: 'json' | 'html' | 'xml' | 'text'
+  language?: 'json' | 'html' | 'xml' | 'shell' | 'text'
   readonly?: boolean
   theme?: 'light' | 'dark'
   minHeight?: string
@@ -53,6 +55,8 @@ const getLanguageExtension = () => {
       return html()
     case 'xml':
       return xml()
+    case 'shell':
+      return StreamLanguage.define(shell)
     default:
       return []
   }

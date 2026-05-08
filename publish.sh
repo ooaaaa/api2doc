@@ -47,8 +47,8 @@ NEW_VERSION=$(node -p "require('./package.json').version")
 echo "新版本: $NEW_VERSION"
 
 # 发布，失败则回退版本号
-if npm publish; then
-  echo "发布成功: md2ui@$NEW_VERSION"
+if npm publish --tag latest; then
+  echo "发布成功: api2doc@$NEW_VERSION"
 else
   echo "发布失败，回退版本号..."
   git checkout package.json 2>/dev/null || true

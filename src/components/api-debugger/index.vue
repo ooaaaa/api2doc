@@ -108,7 +108,7 @@
                   <a-tooltip title="请求目标主机，从 URL 中自动提取">
                     <a-tag class="auto-header-tag">Host</a-tag>
                   </a-tooltip>
-                  <a-tooltip title="NiceApiDoc/1.0">
+                  <a-tooltip title="api2doc/1.0">
                     <a-tag class="auto-header-tag">User-Agent</a-tag>
                   </a-tooltip>
                   <a-tooltip title="*/*">
@@ -383,7 +383,7 @@ const actualRequestHeaders = computed(() => {
     headers['Host'] = url.host
   } catch { /* ignore */ }
   
-  headers['User-Agent'] = 'NiceApiDoc/1.0'
+  headers['User-Agent'] = 'api2doc/1.0'
   headers['Accept'] = '*/*'
   
   // Content-Type（非 GET/HEAD 时）

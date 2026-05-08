@@ -114,6 +114,28 @@
               />
             </template>
           </ParameterTable>
+
+          <!-- cURL 示例 -->
+          <div class="section curl-section">
+            <div class="section-title">
+              <span>cURL 示例</span>
+            </div>
+            <div class="example-section">
+              <div class="example-header">
+                <span class="example-title">示例</span>
+                <a-button size="small" @click="copyCurlCode" class="copy-btn">
+                  复制
+                </a-button>
+              </div>
+              <CodeEditor 
+                :model-value="curlCode" 
+                language="shell" 
+                :readonly="true"
+                min-height="60px"
+                max-height="400px"
+              />
+            </div>
+          </div>
         </a-tab-pane>
 
         <!-- 调试 Tab -->
@@ -665,7 +687,54 @@ const {
   requestBodyContentType.value || 'application/json'
 )
 
-const curlCode = computed(() => generateCurl())
+const curlCode = computed(() => {
+  const url = buildExampleUrl()
+  const method = props.api.method
+
+  // WebSocket 接口
+  if (url.includes('/ws') || props.api.summary?.includes('WebSocket')) {
+    return `# WebSocket 接口无法使用 cURL 直接测试\n# 使用 wscat 连接示例：\nwscat -c ${url.replace(/^http/, 'ws')}`
+  }
+
+  // SSE / Streamable 接口
+  if (url.includes('/sse') || props.api.summary?.includes('SSE') ||
+      url.includes('/streamable') || props.api.summary?.includes('Streamable')) {
+    return `curl -N '${url}'`
+  }
+
+  let cmd = `curl -X ${method} '${url}'`
+
+  // 请求头
+  const headerParams = (props.api.parameters || []).filter((p: any) => p.in === 'header')
+  headerParams.forEach((param: any) => {
+    const exampleValue = String(getExampleValue(param.schema || { type: 'string' }))
+    cmd += ` \\\n  -H '${param.name}: ${exampleValue}'`
+  })
+
+  // 请求体
+  if (method !== 'GET' && props.api.requestBody) {
+    const contentType = requestBodyContentType.value || 'application/json'
+    const bodyExample = generateBodyExample()
+
+    if (contentType === 'application/x-www-form-urlencoded') {
+      try {
+        const jsonData = JSON.parse(bodyExample)
+        const formData = Object.entries(jsonData)
+          .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+          .join('&')
+        cmd += ` \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  -d '${formData}'`
+      } catch {
+        cmd += ` \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  -d '${bodyExample}'`
+      }
+    } else if (contentType === 'application/json') {
+      cmd += ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${bodyExample}'`
+    } else {
+      cmd += ` \\\n  -H 'Content-Type: ${contentType}' \\\n  -d '${bodyExample}'`
+    }
+  }
+
+  return cmd
+})
 const wgetCode = computed(() => generateWget())
 const nodeFetchCode = computed(() => generateNodeFetch())
 const axiosCode = computed(() => generateAxios())
@@ -693,6 +762,11 @@ const copyCode = (lang: string) => {
 
   navigator.clipboard.writeText(code)
   message.success('代码已复制')
+}
+
+const copyCurlCode = () => {
+  navigator.clipboard.writeText(curlCode.value)
+  message.success('cURL 已复制')
 }
 
 // 获取所有可展开的 keys
@@ -978,5 +1052,49 @@ watch(() => props.api, () => {
 :deep(.main-tabs-top .ant-tabs-tabpane) {
   padding: 16px;
   background: #fff;
+}
+
+/* cURL 示例区域样式 */
+.curl-section {
+  margin-top: 20px;
+}
+
+.curl-section .example-section {
+  margin-top: 10px;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 10px;
+  border: 1px solid #e8e8e8;
+}
+
+.curl-section .example-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.curl-section .example-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+.curl-section .copy-btn {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  height: 24px;
+  line-height: 1;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  transition: all 0.2s ease;
+}
+
+.curl-section .copy-btn:hover {
+  color: #fff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
 }
 </style>

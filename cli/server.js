@@ -107,7 +107,7 @@ async function handleRequest(req, res) {
 
 // ============ 启动服务 ============
 
-export function startServer({ port = 4523, open = true } = {}) {
+export function startServer({ port = 5200, open = true } = {}) {
   const serve = sirv(STATIC_DIR, { single: true, dev: true })
 
   const server = createServer(async (req, res) => {

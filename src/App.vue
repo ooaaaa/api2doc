@@ -1,6 +1,6 @@
 <template>
   <div class="app-root">
-    <NiceApiDoc
+    <Api2Doc
       v-if="currentSwaggerUrl"
       :key="activeServiceId || 'none'"
       :swagger-url="currentSwaggerUrl"
@@ -13,6 +13,7 @@
       @remove-service="removeService"
       @import-config="handleImport"
       @export-config="handleExport"
+      @open-debugger="openDebuggerPage"
     />
     <!-- 无服务时展示空状态引导页 -->
     <EmptyGuide
@@ -26,6 +27,7 @@
       @remove-service="removeService"
       @import-config="handleImport"
       @export-config="handleExport"
+      @open-debugger="openDebuggerPage"
     />
   </div>
 </template>
@@ -33,7 +35,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import NiceApiDoc from './components/NiceApiDoc.vue'
+import Api2Doc from './components/Api2Doc.vue'
 import EmptyGuide from './components/states/EmptyGuide.vue'
 import { useServiceManager } from './composables'
 
@@ -80,6 +82,10 @@ function handleImport(json: string) {
   } else {
     message.error(result.message)
   }
+}
+
+function openDebuggerPage() {
+  window.open('/debugger.html', '_blank', 'noopener')
 }
 
 onMounted(() => {

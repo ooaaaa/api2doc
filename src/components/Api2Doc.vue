@@ -1,6 +1,6 @@
 <template>
   <a-config-provider :theme="themeConfig">
-    <div class="nice-apidoc">
+    <div class="api2doc">
       <a-layout>
         <!-- 头部组件 -->
         <AppHeader 
@@ -9,6 +9,7 @@
           :services="services"
           :active-service-id="activeServiceId"
           :is-proxy-mode="isProxyMode"
+          :has-selected-api="!!selectedApi"
           @update:search-text="searchText = $event"
           @go-home="goToHome"
           @switch-service="$emit('switchService', $event)"
@@ -17,6 +18,9 @@
           @remove-service="$emit('removeService', $event)"
           @import-config="$emit('importConfig', $event)"
           @export-config="$emit('exportConfig')"
+          @open-debugger="$emit('openDebugger')"
+          @copy-markdown="handleCopyMarkdown"
+          @download-word="handleDownloadWord"
         />
         
         <a-layout class="main-layout">
@@ -66,7 +70,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { theme } from 'ant-design-vue'
+import { message, theme } from 'ant-design-vue'
 import { 
   useSwaggerData, 
   useApiParser, 
@@ -76,6 +80,7 @@ import {
 } from '../composables'
 import { DEFAULT_THEME } from '../constants'
 import type { ServiceConfig } from '../config'
+import { downloadCurrentApiAsWord, copyCurrentApiAsMarkdown } from '../utils/doc-export'
 import AppHeader from './layout/AppHeader.vue'
 import AppSidebar from './layout/AppSidebar.vue'
 import AppContent from './layout/AppContent.vue'
@@ -98,6 +103,7 @@ defineEmits<{
   removeService: [id: string]
   importConfig: [json: string]
   exportConfig: []
+  openDebugger: []
 }>()
 
 // 使用组合式函数
@@ -259,6 +265,19 @@ const handleMenuClickWrapper = (event: any) => {
   handleMenuClick(event, allApis.value)
 }
 
+// 文档导出功能
+const handleCopyMarkdown = () => {
+  if (!selectedApi.value) return
+  const md = copyCurrentApiAsMarkdown(selectedApi.value, baseUrl.value)
+  navigator.clipboard.writeText(md)
+  message.success('Markdown 已复制到剪贴板')
+}
+
+const handleDownloadWord = () => {
+  if (!selectedApi.value) return
+  downloadCurrentApiAsWord(selectedApi.value.summary || '接口文档')
+}
+
 // 生命周期钩子
 onMounted(async () => {
   // 监听浏览器前进后退
@@ -281,7 +300,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.nice-apidoc {
+.api2doc {
   height: 100%;
   flex: 1;
   overflow: hidden;
@@ -292,7 +311,7 @@ onUnmounted(() => {
 }
 
 /* Ant Design Layout 高度约束 */
-.nice-apidoc :deep(.ant-layout) {
+.api2doc :deep(.ant-layout) {
   height: 100%;
 }
 

@@ -4,7 +4,7 @@
       <!-- 左侧：Logo + 服务选择 -->
       <div class="header-left">
         <div class="logo-area" @click="$emit('goHome')" title="返回首页">
-          <NiceApiDocLogo :size="24" :show-text="true" :small="true" />
+          <Api2DocLogo :size="24" :show-text="true" :small="true" />
         </div>
         <div class="header-divider"></div>
         <div class="service-trigger" @click="showManageModal = true">
@@ -38,10 +38,48 @@
         </a-input>
       </div>
 
-      <!-- 右侧：GitHub 项目链接 -->
+      <!-- 右侧：导出操作 + 调试器 + GitHub 项目链接 -->
       <div class="header-right">
+        <a-tooltip title="复制当前接口为 Markdown">
+          <a 
+            class="header-action-link"
+            :class="{ disabled: !hasSelectedApi }"
+            @click="hasSelectedApi && $emit('copyMarkdown')"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>复制 MD</span>
+          </a>
+        </a-tooltip>
+        <a-tooltip title="下载当前接口为 Word 文档">
+          <a 
+            class="header-action-link"
+            :class="{ disabled: !hasSelectedApi }"
+            @click="hasSelectedApi && $emit('downloadWord')"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>下载 Word</span>
+          </a>
+        </a-tooltip>
+        <div class="header-divider"></div>
         <a 
-          href="https://github.com/devsneed/api2doc" 
+          class="debugger-link"
+          @click="$emit('openDebugger')"
+          title="打开独立 API 调试器"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          <span>调试器</span>
+        </a>
+        <a 
+          href="https://github.com/ooaaaa/api2doc" 
           target="_blank" 
           rel="noopener noreferrer"
           class="github-link"
@@ -228,7 +266,7 @@ import {
   ExportOutlined,
 } from '@ant-design/icons-vue'
 import type { ServiceConfig } from '../../config'
-import NiceApiDocLogo from '../NiceApiDocLogo.vue'
+import Api2DocLogo from '../Api2DocLogo.vue'
 
 interface Props {
   apiInfo: {
@@ -240,11 +278,10 @@ interface Props {
   services: ServiceConfig[]
   activeServiceId: string | null
   isProxyMode: boolean
+  hasSelectedApi: boolean
 }
 
-const props = defineProps<Props>()
-
-const emit = defineEmits<{
+interface Emits {
   'update:searchText': [value: string]
   'goHome': []
   'switchService': [id: string]
@@ -253,7 +290,13 @@ const emit = defineEmits<{
   'removeService': [id: string]
   'importConfig': [json: string]
   'exportConfig': []
-}>()
+  'openDebugger': []
+  'copyMarkdown': []
+  'downloadWord': []
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
 // 弹窗状态
 const showManageModal = ref(false)
@@ -471,7 +514,57 @@ function readAndImportFile(file: File) {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 4px;
   flex-shrink: 0;
+}
+
+.header-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.header-action-link:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-bg, rgba(16, 185, 129, 0.08));
+}
+
+.header-action-link.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.header-action-link.disabled:hover {
+  color: var(--color-text-secondary);
+  background: transparent;
+}
+
+.debugger-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  border: none;
+  color: var(--color-primary, #10b981);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.debugger-link:hover {
+  background: var(--color-primary-bg, rgba(16, 185, 129, 0.08));
 }
 
 .github-link {
