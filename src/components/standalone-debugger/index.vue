@@ -133,10 +133,14 @@
               <span class="section-badge" v-if="enabledHeadersCount > 0">{{ enabledHeadersCount }}</span>
             </div>
             <div v-show="expandedSections.headers" class="section-content">
-              <RequestParams
-                v-model:parameters="headerParameters"
-                type="header"
-                add-button-text="添加 Header"
+              <RequestHeaders
+                :headers="headerParameters"
+                v-model:auto-inject="headerAutoInject"
+                :method="currentMethod"
+                :url="computedUrl"
+                :interface-type="interfaceType"
+                :content-type="getContentType()"
+                @update:headers="headerParameters = $event"
                 @add="addHeaderParam"
                 @remove="removeHeaderParam"
               />
@@ -350,6 +354,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
 import RequestParams from '../api-debugger/RequestParams.vue'
+import RequestHeaders from '../api-debugger/RequestHeaders.vue'
 import RequestCookies from '../api-debugger/RequestCookies.vue'
 import RequestBody from '../api-debugger/RequestBody/index.vue'
 import ResponseViewer from '../api-debugger/ResponseViewer.vue'
@@ -363,6 +368,7 @@ import { parseApiToParams, detectInterfaceType, saveToStorage, restoreFromStorag
 import type { DebuggerParameter, DebuggerFormField, InterfaceType } from '../api-debugger/composables/useApiToParams'
 import type { UploadChangeParam } from 'ant-design-vue'
 import { parseCurl } from '../../utils/curl-parser'
+import { generateRequestHeaders } from '../../utils/request-headers'
 
 interface Props {
   embedded?: boolean
@@ -406,6 +412,7 @@ const formFields = ref<DebuggerFormField[]>([])
 const cookieJar = useCookieJar()
 const cookieParameters = ref<{ name: string; value: string; enabled: boolean }[]>([{ name: '', value: '', enabled: true }])
 const cookieAutoInject = ref(true)
+const headerAutoInject = ref(true)
 
 // 响应状态
 const responseResult = ref('')
@@ -492,9 +499,18 @@ const displayResult = computed(() => {
 const canBeautify = computed(() => { try { JSON.parse(responseResult.value); return true } catch { return false } })
 
 const actualRequestHeaders = computed(() => {
-  const h: Record<string, string> = {}
-  headerParameters.value.forEach(x => { if (x.enabled && x.name && x.value) h[x.name] = x.value })
-  return h
+  const custom: Record<string, string> = {}
+  headerParameters.value.forEach(x => { if (x.enabled && x.name && x.value) custom[x.name] = x.value })
+  if (!headerAutoInject.value) return custom
+  // 内置请求头 + 用户自定义（自定义优先覆盖）
+  const builtin = generateRequestHeaders({
+    method: currentMethod.value,
+    url: computedUrl.value,
+    interfaceType: interfaceType.value,
+    contentType: getContentType(),
+    customHeaders: {}
+  })
+  return { ...builtin, ...custom }
 })
 
 const sendButtonText = computed(() => {
