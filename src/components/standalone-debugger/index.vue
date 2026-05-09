@@ -57,6 +57,15 @@
           @pressEnter="handleSendOrConnect"
           @blur="syncUrlToParams"
         />
+        <a-tooltip title="解析 URL 到参数面板">
+          <a-button
+            size="small"
+            @click="syncUrlToParams"
+            class="parse-url-btn"
+          >
+            解析
+          </a-button>
+        </a-tooltip>
         <a-button
           :type="isActive ? 'default' : 'primary'"
           :danger="isActive"
@@ -453,7 +462,21 @@ const availableMethods = computed(() => {
 })
 
 const computedUrl = computed(() => {
-  if (!props.api) return requestUrl.value
+  if (!props.api) {
+    let url = requestUrl.value
+    // 独立模式：将 path 参数替换到 URL 中
+    pathParameters.value.forEach(p => {
+      if (p.name && p.value && p.enabled) {
+        url = url.replace(`{${p.name}}`, encodeURIComponent(p.value))
+      }
+    })
+    const enabled = queryParameters.value.filter(p => p.enabled && p.name && p.value)
+    if (enabled.length > 0) {
+      const sep = url.includes('?') ? '&' : '?'
+      url += sep + enabled.map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`).join('&')
+    }
+    return url
+  }
   let url = `${props.baseUrl}${props.api.path as string}`
   pathParameters.value.forEach(p => { url = url.replace(`{${p.name}}`, p.value || 'value') })
   const enabled = queryParameters.value.filter(p => p.enabled && p.name && p.value)
@@ -553,14 +576,82 @@ watch(computedUrl, (v) => { editableUrl.value = v }, { immediate: true })
 watch(requestUrl, (v) => { if (!props.api) editableUrl.value = v })
 
 const syncUrlToParams = () => {
-  if (!props.api) { requestUrl.value = editableUrl.value; return }
+  if (!props.api) {
+    // 独立模式：解析 URL 到 requestUrl，并提取 path 占位符
+    const url = editableUrl.value.trim()
+    if (!url) { requestUrl.value = ''; return }
+    try {
+      const urlObj = new URL(url)
+      const pathname = decodeURIComponent(urlObj.pathname)
+      // 提取 query 参数
+      const entries = [...new URLSearchParams(urlObj.search).entries()]
+      if (entries.length > 0) {
+        queryParameters.value = entries.map(([name, value]) => ({ name, value, enabled: true }))
+        queryParameters.value.push({ name: '', value: '', enabled: true })
+      }
+      // 提取 path 占位符 {paramName}
+      const pathMatches = [...pathname.matchAll(/\{([^}]+)\}/g)]
+      if (pathMatches.length > 0) {
+        const newNames = pathMatches.map(m => m[1])
+        const existingMap = new Map(pathParameters.value.map(p => [p.name, p]))
+        pathParameters.value = newNames.map(name => existingMap.get(name) || { name, value: '', enabled: true })
+        expandedSections.value.path = true
+      }
+      // requestUrl 保留原始模板（含占位符）
+      requestUrl.value = urlObj.origin + pathname
+    } catch {
+      requestUrl.value = url
+    }
+    return
+  }
   try {
     const urlObj = new URL(editableUrl.value)
+    // 解析 query 参数：更新已有参数并添加 URL 中新出现的参数
     const searchParams = new URLSearchParams(urlObj.search)
+    const existingNames = new Set(queryParameters.value.map(p => p.name).filter(Boolean))
     queryParameters.value.forEach(param => {
+      if (!param.name) return
       const v = searchParams.get(param.name)
       if (v !== null) { param.value = v; param.enabled = true }
     })
+    // 将 URL 中新增的 query 参数追加到列表
+    searchParams.forEach((value, name) => {
+      if (!existingNames.has(name)) {
+        // 插入到末尾空行之前
+        const emptyIdx = queryParameters.value.findIndex(p => !p.name && !p.value)
+        const newParam = { name, value, enabled: true }
+        if (emptyIdx >= 0) {
+          queryParameters.value.splice(emptyIdx, 0, newParam)
+        } else {
+          queryParameters.value.push(newParam)
+        }
+      }
+    })
+    if (searchParams.size > 0) {
+      expandedSections.value.query = true
+    }
+    // 解析 path 参数：将 URL 实际路径与 API 模板路径进行匹配
+    if (pathParameters.value.length > 0 && props.api.path) {
+      const templatePath = props.api.path as string
+      const templateSegments = templatePath.split('/').filter(Boolean)
+      // 计算 baseUrl 的路径前缀段数
+      const basePath = props.baseUrl ? new URL(props.baseUrl).pathname : '/'
+      const basePathSegments = basePath.split('/').filter(Boolean)
+      // 实际 URL 去掉 baseUrl 路径前缀后的段
+      const actualPathSegments = urlObj.pathname.split('/').filter(Boolean).slice(basePathSegments.length)
+      for (let i = 0; i < templateSegments.length; i++) {
+        const seg = templateSegments[i]
+        const match = seg.match(/^\{([^}]+)\}$/)
+        if (match && actualPathSegments[i] !== undefined) {
+          const paramName = match[1]
+          const param = pathParameters.value.find(p => p.name === paramName)
+          if (param) {
+            param.value = decodeURIComponent(actualPathSegments[i])
+            param.enabled = true
+          }
+        }
+      }
+    }
   } catch { /* 忽略 */ }
 }
 
@@ -607,15 +698,7 @@ watch([pathParameters, queryParameters, headerParameters, bodyContent], () => {
 
 // ========== 请求逻辑 ==========
 const getFullUrl = (): string => {
-  if (props.api) return computedUrl.value
-  let url = requestUrl.value.trim()
-  if (!url) return ''
-  const enabled = queryParameters.value.filter(p => p.enabled && p.name && p.value)
-  if (enabled.length > 0) {
-    const sep = url.includes('?') ? '&' : '?'
-    url += sep + enabled.map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`).join('&')
-  }
-  return url
+  return computedUrl.value.trim() || ''
 }
 
 const getContentType = (): string | undefined => {

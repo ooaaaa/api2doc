@@ -107,6 +107,12 @@ function devProxyPlugin(): Plugin {
             const responseHeaders: Record<string, string> = {}
             resp.headers.forEach((value, key) => { responseHeaders[key] = value })
 
+            // 特殊处理 set-cookie：多个值用 \n 分隔保留完整信息
+            const setCookies = resp.headers.getSetCookie?.() || []
+            if (setCookies.length > 1) {
+              responseHeaders['set-cookie'] = setCookies.join(', ')
+            }
+
             const contentType = responseHeaders['content-type'] || ''
             // 二进制图片用 base64 编码传输，避免 text() 损坏数据
             const isBinaryImage = contentType.startsWith('image/') && !contentType.includes('svg')

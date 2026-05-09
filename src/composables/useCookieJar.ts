@@ -98,6 +98,12 @@ function parseAndStore(setCookieHeader: string, requestUrl: string): StoredCooki
           cookie.expires = new Date(attr.substring(8)).toISOString()
         } catch { /* 忽略无效日期 */ }
       }
+      else if (lower.startsWith('max-age=')) {
+        const seconds = parseInt(attr.substring(8), 10)
+        if (!isNaN(seconds)) {
+          cookie.expires = new Date(Date.now() + seconds * 1000).toISOString()
+        }
+      }
       else if (lower.startsWith('samesite=')) cookie.sameSite = attr.substring(9)
     }
 

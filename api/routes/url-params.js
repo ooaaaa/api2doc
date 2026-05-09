@@ -302,4 +302,108 @@ router.get('/path/:id', (req, res) => {
   });
 });
 
+/**
+ * @openapi
+ * /api/url-params/users/{userId}/posts/{postId}:
+ *   get:
+ *     tags: [URL参数示例]
+ *     summary: 多路径参数+查询参数混合示例
+ *     description: 演示多个路径参数与查询参数混合使用的场景，常见于嵌套资源的 RESTful API 设计
+ *     parameters:
+ *       - name: userId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 用户ID
+ *         example: u001
+ *       - name: postId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 文章ID
+ *         example: p100
+ *       - name: format
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [full, brief, raw]
+ *         description: 返回格式
+ *         example: full
+ *       - name: withComments
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: 是否包含评论
+ *         example: true
+ *     responses:
+ *       200:
+ *         description: 成功返回用户文章详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 userId:
+ *                   type: string
+ *                   example: u001
+ *                 postId:
+ *                   type: string
+ *                   example: p100
+ *                 post:
+ *                   type: object
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                       example: 示例文章标题
+ *                     content:
+ *                       type: string
+ *                       example: 这是文章内容...
+ *                     author:
+ *                       type: string
+ *                       example: u001
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                 query:
+ *                   type: object
+ *                   description: 接收到的查询参数
+ */
+router.get('/users/:userId/posts/:postId', (req, res) => {
+  const { userId, postId } = req.params;
+  const { format, withComments } = req.query;
+
+  const post = {
+    id: postId,
+    title: `用户 ${userId} 的文章 ${postId}`,
+    content: format === 'brief' ? '摘要内容...' : '这是一篇完整的示例文章内容，用于测试多路径参数与查询参数的混合使用场景。',
+    author: userId,
+    createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  const result = {
+    success: true,
+    userId,
+    postId,
+    post,
+    query: req.query
+  };
+
+  if (withComments === 'true') {
+    result.comments = [
+      { id: 'c1', author: 'visitor1', content: '写得不错', createdAt: new Date().toISOString() },
+      { id: 'c2', author: 'visitor2', content: '学到了', createdAt: new Date().toISOString() }
+    ];
+  }
+
+  res.json(result);
+});
+
 module.exports = router;
