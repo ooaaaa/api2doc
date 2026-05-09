@@ -1,6 +1,6 @@
 {
   "name": "api2doc",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "美观的 API 文档查看器，支持 Swagger/OpenAPI，内置代理解决跨域",
   "type": "module",
   "bin": {
