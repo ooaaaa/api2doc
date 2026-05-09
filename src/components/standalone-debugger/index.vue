@@ -99,17 +99,20 @@
             </div>
           </div>
 
-          <!-- Path 参数区块（仅有 path 参数时显示） -->
-          <div v-if="pathParameters.length > 0" class="request-section">
+          <!-- Path 参数区块 -->
+          <div class="request-section">
             <div class="section-header" @click="toggleSection('path')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.path }">&#9654;</span>
               <span class="section-title">Path 参数</span>
-              <span class="section-badge">{{ pathParameters.length }}</span>
+              <span class="section-badge" v-if="pathParameters.length > 0">{{ pathParameters.length }}</span>
             </div>
             <div v-show="expandedSections.path" class="section-content">
               <RequestParams
                 v-model:parameters="pathParameters"
                 type="path"
+                add-button-text="添加 Path 参数"
+                @add="addPathParam"
+                @remove="removePathParam"
               />
             </div>
           </div>
@@ -128,6 +131,24 @@
                 add-button-text="添加 Header"
                 @add="addHeaderParam"
                 @remove="removeHeaderParam"
+              />
+            </div>
+          </div>
+
+          <!-- Cookie 区块 -->
+          <div class="request-section">
+            <div class="section-header" @click="toggleSection('cookies')">
+              <span class="collapse-icon" :class="{ expanded: expandedSections.cookies }">&#9654;</span>
+              <span class="section-title">Cookie</span>
+              <span class="section-badge" v-if="enabledCookieCount > 0">{{ enabledCookieCount }}</span>
+            </div>
+            <div v-show="expandedSections.cookies" class="section-content">
+              <RequestCookies
+                v-model:cookies="cookieParameters"
+                v-model:auto-inject="cookieAutoInject"
+                :request-url="computedUrl"
+                @add="addCookieParam"
+                @remove="removeCookieParam"
               />
             </div>
           </div>
@@ -206,6 +227,7 @@
           @maximize="maximizedModalVisible = true"
           @download-image="downloadImage"
           @download-binary="downloadBinary"
+          @use-cookie="handleUseCookie"
         />
         <div v-else class="empty-response">
           <div class="empty-icon">
@@ -214,6 +236,42 @@
             </svg>
           </div>
           <p class="empty-text">发送请求后查看响应结果</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 请求完整过程（与请求/响应同级，响应成功后展示） -->
+    <div v-if="hasResult && !isSpecialInterface" class="full-transaction-panel" :class="{ 'full-transaction-embedded': embedded }">
+      <div class="transaction-header" @click="transactionExpanded = !transactionExpanded">
+        <span class="collapse-icon" :class="{ expanded: transactionExpanded }">&#9654;</span>
+        <span class="transaction-title">请求完整过程</span>
+        <span class="transaction-meta">
+          {{ currentMethod }} {{ transactionRequestPath }} → {{ responseStatus }} {{ transactionStatusText }}
+        </span>
+        <div class="transaction-actions" @click.stop>
+          <a-button size="small" type="text" @click="copyFullTransaction" class="action-btn">
+            复制全部
+          </a-button>
+        </div>
+      </div>
+      <div v-show="transactionExpanded" class="transaction-content">
+        <div class="transaction-blocks">
+          <!-- 请求报文 -->
+          <div class="transaction-block">
+            <div class="transaction-block-label">Request</div>
+            <pre class="transaction-raw"><span class="raw-request-line">{{ transactionRequestLine }}</span>
+<template v-for="(value, key) in actualRequestHeaders" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
+</template><template v-if="bodyContent">
+<span class="raw-body">{{ bodyContent }}</span></template></pre>
+          </div>
+          <!-- 响应报文 -->
+          <div class="transaction-block">
+            <div class="transaction-block-label">Response</div>
+            <pre class="transaction-raw"><span class="raw-status-line">HTTP/1.1 {{ responseStatus }} {{ transactionStatusText }}</span>
+<template v-for="(value, key) in responseHeaders" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
+</template><template v-if="responseResult">
+<span class="raw-body">{{ transactionResponseBody }}</span></template></pre>
+          </div>
         </div>
       </div>
     </div>
@@ -252,6 +310,7 @@
         @maximize="() => {}"
         @download-image="downloadImage"
         @download-binary="downloadBinary"
+        @use-cookie="handleUseCookie"
       />
     </a-modal>
 
@@ -283,6 +342,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
 import RequestParams from '../api-debugger/RequestParams.vue'
+import RequestCookies from '../api-debugger/RequestCookies.vue'
 import RequestBody from '../api-debugger/RequestBody/index.vue'
 import ResponseViewer from '../api-debugger/ResponseViewer.vue'
 import CodeEditor from '../CodeEditor.vue'
@@ -290,6 +350,7 @@ import Api2DocLogo from '../Api2DocLogo.vue'
 import { useHttpRequest } from '../api-debugger/composables/useHttpRequest'
 import { useWebSocket } from '../api-debugger/composables/useWebSocket'
 import { useSSE } from '../api-debugger/composables/useSSE'
+import { useCookieJar } from '../../composables/useCookieJar'
 import { parseApiToParams, detectInterfaceType, saveToStorage, restoreFromStorage, clearStorage } from '../api-debugger/composables/useApiToParams'
 import type { DebuggerParameter, DebuggerFormField, InterfaceType } from '../api-debugger/composables/useApiToParams'
 import type { UploadChangeParam } from 'ant-design-vue'
@@ -325,12 +386,18 @@ const activeBodyTab = ref<'json' | 'form' | 'xml' | 'text'>('json')
 const bodyContent = ref('')
 const maximizedModalVisible = ref(false)
 const wsMessage = ref('{}')
+const transactionExpanded = ref(false)
 
-const expandedSections = ref({ query: false, path: false, headers: false, body: false })
+const expandedSections = ref({ query: false, path: false, headers: false, cookies: false, body: false })
 const pathParameters = ref<DebuggerParameter[]>([])
 const queryParameters = ref<DebuggerParameter[]>([{ name: '', value: '', enabled: true }])
 const headerParameters = ref<DebuggerParameter[]>([{ name: '', value: '', enabled: true }])
 const formFields = ref<DebuggerFormField[]>([])
+
+// Cookie 相关状态
+const cookieJar = useCookieJar()
+const cookieParameters = ref<{ name: string; value: string; enabled: boolean }[]>([{ name: '', value: '', enabled: true }])
+const cookieAutoInject = ref(true)
 
 // 响应状态
 const responseResult = ref('')
@@ -368,6 +435,11 @@ const isActive = computed(() => {
 const hasResult = computed(() => responseResult.value !== '')
 const enabledQueryCount = computed(() => queryParameters.value.filter(p => p.enabled && p.name && p.value).length)
 const enabledHeadersCount = computed(() => headerParameters.value.filter(h => h.enabled && h.name && h.value).length)
+const enabledCookieCount = computed(() => {
+  const manual = cookieParameters.value.filter(c => c.enabled && c.name && c.value).length
+  const jar = cookieAutoInject.value ? cookieJar.getMatchingCookies(computedUrl.value).length : 0
+  return manual + jar
+})
 
 const availableMethods = computed(() => {
   if (props.api?.method === 'MULTI' && Array.isArray(props.api.methodList)) {
@@ -417,6 +489,65 @@ const specialInterfaceTip = computed(() => {
   return ''
 })
 
+// 请求完整过程相关
+const transactionStatusText = computed(() => {
+  const map: Record<number, string> = {
+    200: 'OK', 201: 'Created', 204: 'No Content',
+    301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
+    400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+    404: 'Not Found', 405: 'Method Not Allowed',
+    500: 'Internal Server Error', 502: 'Bad Gateway',
+    503: 'Service Unavailable', 504: 'Gateway Timeout'
+  }
+  return map[responseStatus.value] || (responseStatus.value >= 200 && responseStatus.value < 300 ? 'OK' : 'Error')
+})
+
+const transactionRequestPath = computed(() => {
+  try {
+    const url = new URL(computedUrl.value)
+    return url.pathname + url.search
+  } catch {
+    return computedUrl.value
+  }
+})
+
+const transactionRequestLine = computed(() => {
+  return `${currentMethod.value} ${transactionRequestPath.value} HTTP/1.1`
+})
+
+const transactionResponseBody = computed(() => {
+  try {
+    const parsed = JSON.parse(responseResult.value)
+    return JSON.stringify(parsed, null, 2)
+  } catch {
+    return responseResult.value
+  }
+})
+
+const copyFullTransaction = async () => {
+  let text = `${transactionRequestLine.value}\n`
+  Object.entries(actualRequestHeaders.value).forEach(([key, value]) => {
+    text += `${key}: ${value}\n`
+  })
+  if (bodyContent.value) {
+    text += `\n${bodyContent.value}\n`
+  }
+  text += `\n---\n\n`
+  text += `HTTP/1.1 ${responseStatus.value} ${transactionStatusText.value}\n`
+  Object.entries(responseHeaders.value).forEach(([key, value]) => {
+    text += `${key}: ${value}\n`
+  })
+  if (responseResult.value) {
+    text += `\n${transactionResponseBody.value}\n`
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success('请求完整过程已复制')
+  } catch {
+    message.error('复制失败')
+  }
+}
+
 // 同步 editableUrl
 watch(computedUrl, (v) => { editableUrl.value = v }, { immediate: true })
 watch(requestUrl, (v) => { if (!props.api) editableUrl.value = v })
@@ -444,7 +575,7 @@ const initFromApi = () => {
   bodyContent.value = parsed.bodyContent
   activeBodyTab.value = parsed.bodyFormat
   formFields.value = parsed.formFields
-  expandedSections.value = parsed.expandedSections
+  expandedSections.value = { ...parsed.expandedSections, cookies: false }
 
   // 尝试从缓存恢复
   const savedBody = restoreFromStorage(props.api, currentMethod.value, 'body')
@@ -540,6 +671,21 @@ const handleHttp = async () => {
   resetResponseState()
   const headers: Record<string, string> = {}
   headerParameters.value.forEach(h => { if (h.enabled && h.name && h.value) headers[h.name] = h.value })
+
+  // 注入 Cookie：合并 Cookie Jar 自动匹配 + 手动编辑的 Cookie
+  const cookieParts: string[] = []
+  if (cookieAutoInject.value) {
+    const jarHeader = cookieJar.buildCookieHeader(url)
+    if (jarHeader) cookieParts.push(jarHeader)
+  }
+  const manualCookies = cookieParameters.value
+    .filter(c => c.enabled && c.name && c.value)
+    .map(c => `${c.name}=${c.value}`)
+  cookieParts.push(...manualCookies)
+  if (cookieParts.length > 0) {
+    headers['Cookie'] = cookieParts.join('; ')
+  }
+
   const body = buildBody()
   const contentType = getContentType()
   if (contentType && !(body instanceof FormData)) headers['Content-Type'] = contentType
@@ -549,6 +695,11 @@ const handleHttp = async () => {
       const result = await http.sendRequest(url, currentMethod.value, headers, body, 'http', contentType)
       responseStatus.value = result.status; responseTiming.value = result.timing
       const rh: Record<string, string> = {}; result.headers.forEach((v: string, k: string) => { rh[k] = v }); responseHeaders.value = rh
+      // 将 Set-Cookie 存入 Cookie Jar
+      const setCookieVal = rh['set-cookie']
+      if (setCookieVal) {
+        cookieJar.parseAndStore(setCookieVal, url)
+      }
       await handleDirectResponse(result.response, result.headers.get('content-type') || '')
       return
     }
@@ -563,8 +714,35 @@ const handleHttp = async () => {
     responseStatus.value = data.status
     responseTiming.value = { startTime: new Date(start), endTime: new Date(), duration }
     responseHeaders.value = data.headers || {}
-    const ct = data.headers?.['content-type'] || ''
-    if (ct.includes('application/json')) {
+
+    // 将 Set-Cookie 存入 Cookie Jar
+    const setCookie = data.headers?.['set-cookie']
+    if (setCookie) {
+      cookieJar.parseAndStore(setCookie, url)
+    }
+
+    const ct = (Object.entries(data.headers || {}).find(([k]) => k.toLowerCase() === 'content-type')?.[1] as string) || ''
+    if (ct.startsWith('image/')) {
+      // 图片类型：构建 Blob 用于预览
+      const mimeType = ct.split(';')[0].trim()
+      let blob: Blob
+      if (data.bodyEncoding === 'base64') {
+        // 二进制图片：从 base64 解码
+        const binary = atob(data.body)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        blob = new Blob([bytes], { type: mimeType })
+        responseResult.value = `[图片数据 - ${mimeType}]`
+      } else {
+        // SVG 等文本格式图片
+        blob = new Blob([data.body], { type: mimeType })
+        responseResult.value = data.body
+      }
+      imageBlob.value = blob
+      imagePreviewUrl.value = URL.createObjectURL(blob)
+      imageInfo.value = `类型: ${mimeType} | 大小: ${(blob.size / 1024).toFixed(2)} KB`
+      isImageResponse.value = true
+    } else if (ct.includes('application/json')) {
       try { responseResult.value = JSON.stringify(JSON.parse(data.body), null, 2); isBeautified.value = true } catch { responseResult.value = data.body }
     } else { responseResult.value = data.body || '(空响应)' }
   } catch (e: unknown) {
@@ -660,8 +838,33 @@ const extractFilename = (r: Response): string => {
 const toggleSection = (s: keyof typeof expandedSections.value) => { expandedSections.value[s] = !expandedSections.value[s] }
 const addQueryParam = () => { queryParameters.value.push({ name: '', value: '', enabled: true }) }
 const removeQueryParam = (i: number) => { queryParameters.value.splice(i, 1) }
+const addPathParam = () => { pathParameters.value.push({ name: '', value: '', enabled: true }) }
+const removePathParam = (i: number) => { pathParameters.value.splice(i, 1) }
 const addHeaderParam = () => { headerParameters.value.push({ name: '', value: '', enabled: true }) }
 const removeHeaderParam = (i: number) => { headerParameters.value.splice(i, 1) }
+const addCookieParam = () => { cookieParameters.value.push({ name: '', value: '', enabled: true }) }
+const removeCookieParam = (i: number) => { cookieParameters.value.splice(i, 1) }
+
+// 响应 Cookie 一键回填到请求 Cookie 区块
+const handleUseCookie = (cookie: { name: string; value: string }) => {
+  // 检查是否已存在同名 Cookie
+  const existIdx = cookieParameters.value.findIndex(c => c.name === cookie.name)
+  if (existIdx >= 0) {
+    cookieParameters.value[existIdx].value = cookie.value
+    cookieParameters.value[existIdx].enabled = true
+  } else {
+    // 如果第一行是空的，直接填入
+    const firstEmpty = cookieParameters.value.findIndex(c => !c.name && !c.value)
+    if (firstEmpty >= 0) {
+      cookieParameters.value[firstEmpty] = { name: cookie.name, value: cookie.value, enabled: true }
+    } else {
+      cookieParameters.value.push({ name: cookie.name, value: cookie.value, enabled: true })
+    }
+  }
+  // 展开 Cookie 区块
+  expandedSections.value.cookies = true
+  message.success(`Cookie "${cookie.name}" 已添加到请求`)
+}
 const addFormField = () => { formFields.value.push({ name: '', value: '', type: 'text', enabled: true, fromSchema: false }) }
 const removeFormField = (i: number) => { formFields.value.splice(i, 1) }
 const handleFileChange = ({ info, index }: { info: UploadChangeParam; index: number }) => { if (formFields.value[index]) formFields.value[index].fileList = info.fileList }
@@ -676,7 +879,8 @@ const resetAll = () => {
   if (props.api) { clearStorage(props.api, currentMethod.value); initFromApi() } else {
     currentMethod.value = 'GET'; requestUrl.value = ''; queryParameters.value = [{ name: '', value: '', enabled: true }]
     headerParameters.value = [{ name: '', value: '', enabled: true }]; bodyContent.value = ''; formFields.value = []; pathParameters.value = []
-    activeBodyTab.value = 'json'; expandedSections.value = { query: false, path: false, headers: false, body: false }
+    cookieParameters.value = [{ name: '', value: '', enabled: true }]
+    activeBodyTab.value = 'json'; expandedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
   }
   resetResponseState()
 }
@@ -745,6 +949,20 @@ const copyAsCurl = async () => {
   enabledHeaders.forEach(h => {
     cmd += ` \\\n  -H '${h.name}: ${h.value}'`
   })
+
+  // 添加 Cookie
+  const cookieParts: string[] = []
+  if (cookieAutoInject.value) {
+    const jarHeader = cookieJar.buildCookieHeader(url)
+    if (jarHeader) cookieParts.push(jarHeader)
+  }
+  const manualCookies = cookieParameters.value
+    .filter(c => c.enabled && c.name && c.value)
+    .map(c => `${c.name}=${c.value}`)
+  cookieParts.push(...manualCookies)
+  if (cookieParts.length > 0) {
+    cmd += ` \\\n  -b '${cookieParts.join('; ')}'`
+  }
 
   // 添加请求体
   if (!['GET', 'HEAD', 'OPTIONS'].includes(currentMethod.value)) {
@@ -823,7 +1041,7 @@ onUnmounted(() => { closeAllConnections(true) })
 .collapse-icon.expanded { transform: rotate(90deg); }
 .section-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
 .section-badge { font-size: 11px; padding: 1px 6px; margin-left: 8px; border-radius: 10px; background: rgba(16, 185, 129, 0.08); color: #10b981; }
-.section-header-actions { margin-left: auto; }
+.section-header-actions { margin-left: 12px; }
 .body-format-select { width: 80px; }
 .section-content { padding: 8px 20px 16px; }
 .request-panel-embedded .section-content { padding: 0 0 12px; }
@@ -839,4 +1057,21 @@ onUnmounted(() => { closeAllConnections(true) })
 
 .curl-import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
 .curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+
+/* 请求完整过程 */
+.full-transaction-panel { border-top: 1px solid var(--color-border-light, #f0f0f0); padding: 0 20px; }
+.full-transaction-embedded { padding: 0; margin-top: 12px; }
+.transaction-header { display: flex; align-items: center; gap: 8px; padding: 10px 0; cursor: pointer; user-select: none; }
+.transaction-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.transaction-meta { font-size: 11px; color: var(--color-text-muted, #6b7280); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.transaction-actions { margin-left: 12px; display: flex; align-items: center; gap: 4px; }
+.transaction-content { padding: 0 0 16px; }
+.transaction-blocks { display: flex; flex-direction: column; gap: 12px; }
+.transaction-block { position: relative; }
+.transaction-block-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-primary, #4361ee); margin-bottom: 6px; padding: 2px 8px; background: var(--color-primary-bg, #f0f5ff); border-radius: 3px; display: inline-block; }
+.transaction-raw { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7; background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 0; white-space: pre-wrap; word-break: break-all; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+.transaction-raw .raw-request-line, .transaction-raw .raw-status-line { font-weight: 700; color: var(--color-primary, #4361ee); }
+.transaction-raw .raw-header-name { color: #8b5cf6; }
+.transaction-raw .raw-header-value { color: #333; }
+.transaction-raw .raw-body { color: #059669; }
 </style>

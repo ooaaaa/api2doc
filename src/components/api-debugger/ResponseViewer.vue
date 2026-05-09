@@ -132,7 +132,17 @@
       </div>
       <div v-show="expandedSections.cookies" class="section-content">
         <div v-for="(cookie, index) in parsedCookies" :key="index" class="cookie-card">
-          <div class="cookie-name">{{ cookie.name }}</div>
+          <div class="cookie-card-header">
+            <div class="cookie-name">{{ cookie.name }}</div>
+            <a-button
+              size="small"
+              type="link"
+              class="use-cookie-btn"
+              @click="emit('useCookie', { name: cookie.name, value: cookie.value })"
+            >
+              用于请求
+            </a-button>
+          </div>
           <div class="cookie-detail">
             <span class="cookie-label">值:</span>
             <span class="cookie-value">{{ cookie.value }}</span>
@@ -149,41 +159,7 @@
       </div>
     </div>
 
-    <!-- 原始报文区块 -->
-    <div v-if="!isSpecialInterface" class="response-section raw-section">
-      <div class="section-header" @click="toggleSection('raw')">
-        <span class="collapse-icon" :class="{ expanded: expandedSections.raw }">&#9654;</span>
-        <span class="section-title">原始报文</span>
-        <span class="section-meta-inline">
-          {{ requestMethod }} {{ requestPath }} → {{ status }} {{ statusText }}
-        </span>
-        <div class="section-actions" @click.stop>
-          <a-button size="small" type="text" @click="copyRawTransaction" class="action-btn">
-            复制全部
-          </a-button>
-        </div>
-      </div>
-      <div v-show="expandedSections.raw" class="section-content">
-        <div class="raw-transaction">
-          <!-- 请求报文 -->
-          <div class="raw-block">
-            <div class="raw-label">Request</div>
-            <pre class="raw-content"><span class="raw-request-line">{{ requestLine }}</span>
-<template v-for="(value, key) in requestHeadersForRaw" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
-</template><template v-if="requestBodyRaw">
-<span class="raw-body">{{ requestBodyRaw }}</span></template></pre>
-          </div>
-          <!-- 响应报文 -->
-          <div class="raw-block">
-            <div class="raw-label">Response</div>
-            <pre class="raw-content"><span class="raw-status-line">HTTP/1.1 {{ status }} {{ statusText }}</span>
-<template v-for="(value, key) in responseHeaders" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
-</template><template v-if="result">
-<span class="raw-body">{{ rawResponseBody }}</span></template></pre>
-          </div>
-        </div>
-      </div>
-    </div>
+
   </div>
 </template>
 
@@ -233,6 +209,7 @@ interface Emits {
   (e: 'maximize'): void
   (e: 'downloadImage'): void
   (e: 'downloadBinary'): void
+  (e: 'useCookie', cookie: { name: string; value: string }): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -249,8 +226,7 @@ const emit = defineEmits<Emits>()
 const expandedSections = ref({
   body: true,
   headers: false,
-  cookies: false,
-  raw: false
+  cookies: false
 })
 
 const toggleSection = (section: keyof typeof expandedSections.value) => {
@@ -271,8 +247,14 @@ const statusText = computed(() => {
 })
 
 // 格式检测
+const getContentType = (): string => {
+  const headers = props.responseHeaders || {}
+  const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type')
+  return (entry?.[1] || '') as string
+}
+
 const detectedFormat = computed(() => {
-  const ct = props.responseHeaders?.['content-type'] || ''
+  const ct = getContentType()
   if (ct.includes('application/json')) return 'JSON'
   if (ct.includes('text/html')) return 'HTML'
   if (ct.includes('application/xml') || ct.includes('text/xml')) return 'XML'
@@ -375,63 +357,7 @@ const parsedCookies = computed((): ParsedCookie[] => {
   return cookies
 })
 
-// 原始报文相关
-const requestPath = computed(() => {
-  try {
-    const url = new URL(props.requestUrl)
-    return url.pathname + url.search
-  } catch {
-    return props.requestUrl
-  }
-})
 
-const requestLine = computed(() => {
-  return `${props.requestMethod} ${requestPath.value} HTTP/1.1`
-})
-
-const requestHeadersForRaw = computed(() => {
-  return props.requestHeaders || {}
-})
-
-const requestBodyRaw = computed(() => {
-  return props.requestBody || ''
-})
-
-const rawResponseBody = computed(() => {
-  // 尝试格式化 JSON
-  try {
-    const parsed = JSON.parse(props.result)
-    return JSON.stringify(parsed, null, 2)
-  } catch {
-    return props.result
-  }
-})
-
-// 复制原始报文
-const copyRawTransaction = async () => {
-  let text = `${requestLine.value}\n`
-  Object.entries(requestHeadersForRaw.value).forEach(([key, value]) => {
-    text += `${key}: ${value}\n`
-  })
-  if (requestBodyRaw.value) {
-    text += `\n${requestBodyRaw.value}\n`
-  }
-  text += `\n---\n\n`
-  text += `HTTP/1.1 ${props.status} ${statusText.value}\n`
-  Object.entries(props.responseHeaders || {}).forEach(([key, value]) => {
-    text += `${key}: ${value}\n`
-  })
-  if (props.result) {
-    text += `\n${rawResponseBody.value}\n`
-  }
-  
-  try {
-    await navigator.clipboard.writeText(text)
-    message.success('原始报文已复制')
-  } catch {
-    message.error('复制失败')
-  }
-}
 
 // 响应到达时自动展开有数据的区块
 watch(() => props.status, (newStatus) => {
@@ -439,14 +365,13 @@ watch(() => props.status, (newStatus) => {
     expandedSections.value.body = true
     expandedSections.value.headers = Object.keys(props.responseHeaders || {}).length > 0
     expandedSections.value.cookies = parsedCookies.value.length > 0
-    expandedSections.value.raw = false
   }
 })
 
 // 自动检测格式变化时选中对应类型
 watch(() => props.result, () => {
   // 根据检测到的格式自动选中
-  const ct = props.responseHeaders?.['content-type'] || ''
+  const ct = getContentType()
   if (props.isImageResponse) { viewFormat.value = 'image'; return }
   if (props.isBinaryResponse) { viewFormat.value = 'binary'; return }
   if (ct.includes('application/json')) { viewFormat.value = 'json'; return }
@@ -508,7 +433,7 @@ watch(() => props.result, () => {
 }
 
 .summary-actions {
-  margin-left: auto;
+  margin-left: 12px;
 }
 
 /* 折叠区块 */
@@ -571,7 +496,7 @@ watch(() => props.result, () => {
 }
 
 .section-actions {
-  margin-left: auto;
+  margin-left: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -659,11 +584,24 @@ watch(() => props.result, () => {
   margin-bottom: 0;
 }
 
+.cookie-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
 .cookie-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
-  margin-bottom: 4px;
+}
+
+.use-cookie-btn {
+  font-size: 11px;
+  padding: 0 4px;
+  height: 20px;
+  color: var(--color-primary);
 }
 
 .cookie-detail {
@@ -788,60 +726,5 @@ watch(() => props.result, () => {
   font-weight: 600;
 }
 
-/* 原始报文 */
-.raw-transaction {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
-.raw-block {
-  position: relative;
-}
-
-.raw-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--color-primary);
-  margin-bottom: 6px;
-  padding: 2px 8px;
-  background: var(--color-primary-bg);
-  border-radius: 3px;
-  display: inline-block;
-}
-
-.raw-content {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.7;
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 6px;
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  overflow-x: auto;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.raw-request-line,
-.raw-status-line {
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.raw-header-name {
-  color: #8b5cf6;
-}
-
-.raw-header-value {
-  color: #333;
-}
-
-.raw-body {
-  color: #059669;
-}
 </style>

@@ -5,7 +5,6 @@
         <a-checkbox 
           :checked="param.enabled" 
           @update:checked="updateParam(index, 'enabled', $event)"
-          :disabled="type === 'path'"
         />
         <a-input 
           :value="param.name" 
@@ -13,7 +12,6 @@
           placeholder="参数名" 
           size="small" 
           class="param-name-input"
-          :disabled="type === 'path'"
         />
         <a-input 
           :value="param.value" 
@@ -22,7 +20,6 @@
           size="small"
         />
         <a-button 
-          v-if="type !== 'path'"
           size="small" 
           danger 
           type="text" 
@@ -31,11 +28,9 @@
         >
           删除
         </a-button>
-        <span v-else style="width: 40px"></span>
       </div>
     </div>
     <a-button 
-      v-if="type !== 'path'"
       type="dashed" 
       block 
       @click="$emit('add')" 

@@ -90,11 +90,25 @@ async function handleRequest(req, res) {
       const responseHeaders = {}
       resp.headers.forEach((value, key) => { responseHeaders[key] = value })
 
+      const contentType = responseHeaders['content-type'] || ''
+      // 二进制图片用 base64 编码传输，避免 text() 损坏数据
+      const isBinaryImage = contentType.startsWith('image/') && !contentType.includes('svg')
+      let responseBody
+      let bodyEncoding
+      if (isBinaryImage) {
+        const buffer = Buffer.from(await resp.arrayBuffer())
+        responseBody = buffer.toString('base64')
+        bodyEncoding = 'base64'
+      } else {
+        responseBody = await resp.text()
+      }
+
       json(res, 200, {
         status: resp.status,
         statusText: resp.statusText,
         headers: responseHeaders,
-        body: await resp.text(),
+        body: responseBody,
+        bodyEncoding,
       })
     } catch (err) {
       json(res, 502, { error: `API 代理请求失败: ${err.message}` })

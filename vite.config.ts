@@ -107,12 +107,26 @@ function devProxyPlugin(): Plugin {
             const responseHeaders: Record<string, string> = {}
             resp.headers.forEach((value, key) => { responseHeaders[key] = value })
 
+            const contentType = responseHeaders['content-type'] || ''
+            // 二进制图片用 base64 编码传输，避免 text() 损坏数据
+            const isBinaryImage = contentType.startsWith('image/') && !contentType.includes('svg')
+            let responseBody: string
+            let bodyEncoding: string | undefined
+            if (isBinaryImage) {
+              const buffer = Buffer.from(await resp.arrayBuffer())
+              responseBody = buffer.toString('base64')
+              bodyEncoding = 'base64'
+            } else {
+              responseBody = await resp.text()
+            }
+
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({
               status: resp.status,
               statusText: resp.statusText,
               headers: responseHeaders,
-              body: await resp.text(),
+              body: responseBody,
+              bodyEncoding,
             }))
           } catch (err: any) {
             res.statusCode = 502

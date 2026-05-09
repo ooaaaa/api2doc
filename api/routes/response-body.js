@@ -191,6 +191,49 @@ router.get('/svg-icon', (req, res) => {
 
 /**
  * @openapi
+ * /api/response-body/png-image:
+ *   get:
+ *     tags: [响应体ResponseBody不同类型示例]
+ *     summary: PNG图片示例
+ *     description: 演示返回 PNG 图片文件流，支持前端预览和下载
+ *     responses:
+ *       200:
+ *         description: 成功
+ *         content:
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: 图片文件不存在
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ */
+router.get('/png-image', (req, res) => {
+  const fs = require('fs');
+  const filePath = path.join(__dirname, '../public/测试图片.png');
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      error: '图片文件不存在',
+      path: filePath
+    });
+  }
+
+  const stat = fs.statSync(filePath);
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Content-Length', stat.size);
+  res.setHeader('Content-Disposition', 'inline; filename="test-image.png"');
+  fs.createReadStream(filePath).pipe(res);
+});
+
+/**
+ * @openapi
  * /api/response-body/binary-txt-download:
  *   get:
  *     tags: [响应体ResponseBody不同类型示例]

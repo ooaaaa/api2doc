@@ -1,16 +1,18 @@
 <template>
   <div 
-    ref="editorRef" 
-    class="code-editor"
+    class="code-editor-wrapper"
     :style="{
       '--editor-min-height': minHeight,
       '--editor-max-height': maxHeight
     }"
-  ></div>
+  >
+    <span class="code-language-tag">{{ languageLabel }}</span>
+    <div ref="editorRef" class="code-editor"></div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { json } from '@codemirror/lang-json'
@@ -45,6 +47,18 @@ const emit = defineEmits<Emits>()
 
 const editorRef = ref<HTMLElement>()
 let editorView: EditorView | null = null
+
+// 语言标签显示文本
+const languageLabel = computed(() => {
+  const map: Record<string, string> = {
+    json: 'JSON',
+    html: 'HTML',
+    xml: 'XML',
+    shell: 'Bash',
+    text: 'Text'
+  }
+  return map[props.language] || props.language.toUpperCase()
+})
 
 // 获取语言扩展
 const getLanguageExtension = () => {
@@ -145,10 +159,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.code-editor {
+.code-editor-wrapper {
+  position: relative;
   border: 1px solid var(--color-border-light);
   border-radius: 6px;
   overflow: hidden;
+  height: auto;
+}
+
+.code-language-tag {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 10;
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
+  background: rgba(249, 250, 251, 0.85);
+  padding: 1px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.code-editor {
   height: auto;
 }
 
@@ -207,7 +242,7 @@ onUnmounted(() => {
   outline: none;
 }
 
-.code-editor:has(.cm-focused) {
+.code-editor-wrapper:has(.cm-focused) {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.08);
 }

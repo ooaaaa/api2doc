@@ -49,7 +49,8 @@ export function useHttpRequest() {
         method,
         headers: completeHeaders,
         body,
-        signal: abortController.value.signal
+        signal: abortController.value.signal,
+        credentials: 'include'
       })
 
       // 记录请求结束时间
