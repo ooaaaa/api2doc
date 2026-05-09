@@ -55,7 +55,6 @@
           class="url-input"
           :placeholder="embedded ? '请求 URL' : '输入请求 URL，例如 https://api.example.com/users'"
           @pressEnter="handleSendOrConnect"
-          @blur="syncUrlToParams"
         />
         <a-tooltip title="解析 URL 到参数面板">
           <a-button
@@ -572,8 +571,9 @@ const copyFullTransaction = async () => {
 }
 
 // 同步 editableUrl
-watch(computedUrl, (v) => { editableUrl.value = v }, { immediate: true })
-watch(requestUrl, (v) => { if (!props.api) editableUrl.value = v })
+let isSyncingFromComputed = false
+watch(computedUrl, (v) => { isSyncingFromComputed = true; editableUrl.value = v }, { immediate: true })
+watch(requestUrl, (v) => { if (!props.api) { isSyncingFromComputed = true; editableUrl.value = v } })
 
 const syncUrlToParams = () => {
   if (!props.api) {
@@ -654,6 +654,14 @@ const syncUrlToParams = () => {
     }
   } catch { /* 忽略 */ }
 }
+
+// 输入 URL 时自动触发解析（防抖 300ms）
+let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(editableUrl, () => {
+  if (isSyncingFromComputed) { isSyncingFromComputed = false; return }
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer)
+  syncDebounceTimer = setTimeout(() => syncUrlToParams(), 300)
+})
 
 // ========== 初始化 ==========
 const initFromApi = () => {
