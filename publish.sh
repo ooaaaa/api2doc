@@ -21,7 +21,8 @@ if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
 fi
 
-NPM_TOKEN=${NPM_TOKEN:?'请在 .env 文件中设置 NPM_TOKEN'}
+# 默认 token 为 api2doc，用户可在 .env 中自定义
+NPM_TOKEN=${NPM_TOKEN:-api2doc}
 
 VERSION_TYPE=${1:-patch}
 
