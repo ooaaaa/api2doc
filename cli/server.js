@@ -150,7 +150,7 @@ async function handleRequest(req, res) {
 
 // ============ 启动服务 ============
 
-export function startServer({ port = 5200, open = true } = {}) {
+export function startServer({ port = 5200, open = true, maxRetries = 10 } = {}) {
   const serve = sirv(STATIC_DIR, { single: true, dev: true })
 
   const server = createServer(async (req, res) => {
@@ -160,18 +160,38 @@ export function startServer({ port = 5200, open = true } = {}) {
     }
   })
 
-  server.listen(port, () => {
-    const url = `http://localhost:${port}`
-    console.log('')
-    console.log('  api2doc 已启动')
-    console.log('')
-    console.log(`  地址: ${url}`)
-    console.log('')
-    console.log('  按 Ctrl+C 停止')
-    console.log('')
+  let currentPort = port
+  let retries = 0
 
-    if (open) {
-      import('open').then(({ default: openBrowser }) => openBrowser(url)).catch(() => {})
+  function tryListen() {
+    server.listen(currentPort, () => {
+      const url = `http://localhost:${currentPort}`
+      console.log('')
+      console.log('  api2doc 已启动')
+      console.log('')
+      console.log(`  地址: ${url}`)
+      console.log('')
+      console.log('  按 Ctrl+C 停止')
+      console.log('')
+
+      if (open) {
+        import('open').then(({ default: openBrowser }) => openBrowser(url)).catch(() => {})
+      }
+    })
+  }
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && retries < maxRetries) {
+      console.log(`  端口 ${currentPort} 已被占用，尝试端口 ${currentPort + 1}...`)
+      currentPort++
+      retries++
+      server.removeAllListeners('error')
+      tryListen()
+    } else {
+      console.error(`  启动失败: ${err.message}`)
+      process.exit(1)
     }
   })
+
+  tryListen()
 }
