@@ -21,5 +21,4 @@ scripts/npm.env
 # 锁文件（使用 pnpm）
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 
