@@ -30,6 +30,12 @@
   "publishConfig": {
     "access": "public"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "core-js"
+    ]
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ooaaaa/api2doc.git"
