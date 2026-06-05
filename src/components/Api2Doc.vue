@@ -261,10 +261,12 @@ const handleMenuClickWrapper = (event: any) => {
   handleMenuClick(event, allApis.value)
 }
 
+// 保存监听器引用，确保 onUnmounted 能正确移除
+const hashChangeHandler = () => handleHashChange(allApis.value)
+
 // 生命周期钩子
 onMounted(async () => {
   // 监听浏览器前进后退
-  const hashChangeHandler = () => handleHashChange(allApis.value)
   window.addEventListener('hashchange', hashChangeHandler)
   
   // 先加载数据
@@ -277,7 +279,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  const hashChangeHandler = () => handleHashChange(allApis.value)
   window.removeEventListener('hashchange', hashChangeHandler)
 })
 </script>

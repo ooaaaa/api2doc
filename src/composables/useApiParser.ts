@@ -244,19 +244,8 @@ export function useApiParser(swaggerSpec: Ref<SwaggerSpec | null>) {
   /**
    * 获取HTTP方法对应的颜色
    */
-  const getMethodColor = (method: string) => {
-    // 统一绿色系配色，通过深浅区分方法类型
-    const colors: Record<string, string> = {
-      GET: 'green',
-      POST: 'green',
-      PUT: 'green',
-      DELETE: 'green',
-      PATCH: 'green',
-      HEAD: 'green',
-      OPTIONS: 'green',
-      MULTI: 'green'
-    }
-    return colors[method] || 'green'
+  const getMethodColor = (_method: string) => {
+    return 'green'
   }
 
   /**

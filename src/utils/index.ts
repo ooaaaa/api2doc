@@ -62,43 +62,7 @@ export const throttle = <T extends (...args: any[]) => any>(
   }
 }
 
-/**
- * 深度克隆对象
- */
-export const deepClone = <T>(obj: T): T => {
-  if (obj === null || typeof obj !== 'object') {
-    return obj
-  }
-  
-  if (obj instanceof Date) {
-    return new Date(obj.getTime()) as unknown as T
-  }
-  
-  if (obj instanceof Array) {
-    return obj.map(item => deepClone(item)) as unknown as T
-  }
-  
-  if (typeof obj === 'object') {
-    const clonedObj = {} as T
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        clonedObj[key] = deepClone(obj[key])
-      }
-    }
-    return clonedObj
-  }
-  
-  return obj
-}
 
-
-
-/**
- * 生成唯一ID
- */
-export const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 11)
-}
 
 /**
  * 检查是否为有效的URL

@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import type { ServiceConfig } from '../config'
-import { getProxyUrl, localServiceStore } from '../config'
+import { getProxyUrl, localServiceStore, detectProxyMode } from '../config'
 
 /**
  * 服务管理组合式函数
@@ -67,21 +67,11 @@ export function useServiceManager() {
     }
   }
 
-  /** 检测是否运行在本地代理模式 */
-  async function detectProxy(): Promise<boolean> {
-    try {
-      const resp = await fetch('/api/services', { method: 'GET' })
-      return resp.ok
-    } catch {
-      return false
-    }
-  }
-
   /** 初始化 */
   async function init() {
     loading.value = true
     try {
-      isProxyMode.value = await detectProxy()
+      isProxyMode.value = await detectProxyMode()
       services.value = localServiceStore.getAll()
 
       // 无服务时直接返回，由 UI 引导用户添加

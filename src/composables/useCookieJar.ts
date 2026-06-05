@@ -41,12 +41,12 @@ function saveToStorage(): void {
  */
 function removeExpired(): void {
   const now = Date.now()
-  const before = cookies.value.length
-  cookies.value = cookies.value.filter(c => {
+  const filtered = cookies.value.filter(c => {
     if (!c.expires) return true
     return new Date(c.expires).getTime() > now
   })
-  if (cookies.value.length !== before) {
+  if (filtered.length !== cookies.value.length) {
+    cookies.value = filtered
     saveToStorage()
   }
 }

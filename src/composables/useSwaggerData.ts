@@ -62,8 +62,7 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
       }
       
       return spec
-    } catch (e) {
-      console.warn(`加载失败: ${url}`, e)
+    } catch {
       return null
     }
   }
@@ -82,13 +81,11 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
       
       // 依次尝试每个URL
       for (const url of urls) {
-        console.log(`尝试加载: ${url}`)
         const spec = await tryFetchFromUrl(url)
         
         if (spec) {
           swaggerSpec.value = spec
           actualUrl.value = url
-          console.log(`✓ 成功加载: ${url}`)
           return
         }
       }
@@ -101,7 +98,6 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
       )
     } catch (e: any) {
       error.value = e.message
-      console.error('加载Swagger文档失败:', e)
     } finally {
       loading.value = false
     }
