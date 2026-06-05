@@ -20,5 +20,3 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
-# 环境变量
-.env
