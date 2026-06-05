@@ -27,6 +27,13 @@
     "proxy"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ooaaaa/api2doc.git"
+  },
   "dependencies": {
     "@codemirror/legacy-modes": "^6.5.2",
     "sirv": "^3.0.0"
