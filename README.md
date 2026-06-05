@@ -146,6 +146,7 @@ api/
 ## 发布
 
 ```bash
+pnpm install        # 安装依赖
 pnpm build          # 构建前端
 npm publish         # 发布到 npm
 ```
