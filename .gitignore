@@ -12,9 +12,6 @@ dist/
 .idea/
 .kiro
 
-# 环境变量
-scripts/npm.env
-
 # 日志
 *.log
 
