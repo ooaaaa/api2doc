@@ -19,14 +19,20 @@
     <div class="sidebar-header">
       <span class="sidebar-title">接口列表</span>
       <div class="sidebar-actions">
-        <span class="api-count">{{ totalApiCount }} 个接口</span>
+        <span class="api-count">
+          <span class="count-number">{{ filteredTags.length }}</span>
+          <span class="count-text">分组</span>
+          <span class="count-separator">·</span>
+          <span class="count-number">{{ totalApiCount }}</span>
+          <span class="count-text">接口</span>
+        </span>
         <a-button 
           type="text" 
           size="small"
           @click="$emit('toggleSidebar')"
           class="collapse-btn"
         >
-          收起
+          <span class="collapse-icon">‹</span>
         </a-button>
       </div>
     </div>
@@ -160,9 +166,26 @@ defineEmits<Emits>()
   font-size: 12px;
   color: var(--color-text-muted);
   font-weight: 400;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.count-number {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.count-text {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.count-separator {
+  font-size: 11px;
+  color: var(--color-border);
+  margin: 0 4px;
 }
 
 .sidebar-loading {
@@ -347,15 +370,15 @@ defineEmits<Emits>()
 
 :deep(.api-index) {
   font-size: 11px;
-  color: var(--color-text-muted);
+  color: #bfbfbf;
   font-weight: 400;
   flex-shrink: 0;
 }
 
 :deep(.api-summary) {
   flex: 1;
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  font-size: 13px;
+  color: var(--color-text);
   line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -380,8 +403,8 @@ defineEmits<Emits>()
 }
 
 :deep(.api-path) {
-  font-size: 10px;
-  color: var(--color-text-muted);
+  font-size: 11px;
+  color: #bfbfbf;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   line-height: 1.4;
   word-break: break-all;
@@ -393,14 +416,26 @@ defineEmits<Emits>()
 .collapse-btn {
   border-radius: 4px;
   font-weight: 400;
-  font-size: 12px;
+  font-size: 16px;
   transition: all var(--transition-fast);
-  padding: 2px 8px;
-  color: var(--color-text-muted);
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
 }
 
 .collapse-btn:hover {
   color: var(--color-primary);
   background: var(--color-primary-bg);
+}
+
+.collapse-icon {
+  display: inline-block;
+  font-weight: bold;
+  line-height: 1;
+  transform: scaleX(1.5);
 }
 </style>

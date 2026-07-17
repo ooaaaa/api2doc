@@ -86,79 +86,88 @@ defineEmits<Emits>()
 
 <style scoped>
 .form-editor {
-  background: #fff;
-  border-radius: 6px;
-  padding: 12px;
-  border: 1px solid #e8e8e8;
+  padding: 0;
 }
 
 .form-fields {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .form-field-item {
   display: grid;
-  grid-template-columns: 32px 180px 100px 1fr 40px;
-  gap: 12px;
+  grid-template-columns: 24px 140px 80px 1fr 36px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
+  padding: 6px 8px;
   background: #fafafa;
-  border-radius: 6px;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s ease;
+  border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .form-field-item:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 8px var(--color-primary-bg);
+  background: #f0f0f0;
 }
 
-.field-name-input {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+.field-name-input :deep(.ant-input) {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #fff;
 }
 
-.field-value-input {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+.field-value-input :deep(.ant-input) {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #fff;
 }
 
-/* 按钮样式优化 */
+:deep(.ant-select-selector) {
+  font-size: 12px !important;
+  background: #fff !important;
+}
+
+:deep(.ant-checkbox-wrapper) {
+  display: flex;
+  align-items: center;
+}
+
 .delete-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 40px;
+  font-size: 11px;
+  padding: 0;
+  height: 24px;
+  min-width: 36px;
+  opacity: 0.6;
 }
 
 .delete-btn:hover {
-  background: rgba(255, 77, 79, 0.1);
+  opacity: 1;
+  background: rgba(255, 77, 79, 0.08);
 }
 
 .file-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  font-size: 12px;
+  height: 28px;
 }
 
 .file-btn:hover {
   color: var(--color-primary);
   border-color: var(--color-primary);
-  background: var(--color-primary-bg);
+  background: rgba(16, 185, 129, 0.04);
 }
 
 .add-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  margin-top: 8px;
+  font-size: 12px;
+  height: 28px;
+  border-style: dashed;
+  border-color: #d9d9d9;
+  color: #8c8c8c;
 }
 
 .add-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: var(--color-primary-bg);
+  background: transparent;
 }
 </style>

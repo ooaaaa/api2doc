@@ -120,11 +120,12 @@ const updateCookie = (index: number, field: string, value: string | boolean) => 
   gap: 12px;
 }
 
+/* Cookie Jar 提示优化 */
 .jar-hint {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  padding: 10px 12px;
+  background: #f6ffed;
+  border: 1px solid #d3f261;
+  border-radius: 4px;
+  padding: 8px 10px;
 }
 
 .jar-hint-header {
@@ -140,7 +141,7 @@ const updateCookie = (index: number, field: string, value: string | boolean) => 
 .jar-label {
   font-size: 12px;
   font-weight: 500;
-  color: #166534;
+  color: #389e0d;
   flex: 1;
 }
 
@@ -159,25 +160,25 @@ const updateCookie = (index: number, field: string, value: string | boolean) => 
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  padding: 4px 8px;
+  padding: 3px 8px;
   background: #fff;
-  border-radius: 4px;
-  border: 1px solid #dcfce7;
+  border-radius: 3px;
+  line-height: 1.6;
 }
 
 .jar-cookie-name {
-  color: #166534;
+  color: #389e0d;
   font-weight: 600;
 }
 
 .jar-cookie-eq {
-  color: #6b7280;
+  color: #8c8c8c;
 }
 
 .jar-cookie-value {
-  color: #374151;
+  color: #595959;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,12 +186,13 @@ const updateCookie = (index: number, field: string, value: string | boolean) => 
 }
 
 .jar-cookie-domain {
-  color: #9ca3af;
-  font-size: 11px;
+  color: #bfbfbf;
+  font-size: 10px;
   margin-left: auto;
   flex-shrink: 0;
 }
 
+/* 手动 Cookies - 与其他表单统一 */
 .manual-cookies {
   padding: 0;
 }
@@ -198,58 +200,65 @@ const updateCookie = (index: number, field: string, value: string | boolean) => 
 .param-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .param-item {
   display: grid;
-  grid-template-columns: 32px 180px 1fr 40px;
-  gap: 12px;
+  grid-template-columns: 24px 160px 1fr 36px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s ease;
+  padding: 6px 8px;
+  background: #fafafa;
+  border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .param-item:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 8px var(--color-primary-bg);
-}
-
-.cookie-name-input {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+  background: #f0f0f0;
 }
 
 .cookie-name-input :deep(.ant-input) {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #fff;
+}
+
+:deep(.ant-input) {
+  font-size: 12px;
+  background: #fff;
+}
+
+:deep(.ant-checkbox-wrapper) {
+  display: flex;
+  align-items: center;
 }
 
 .delete-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 40px;
+  font-size: 11px;
+  padding: 0;
+  height: 24px;
+  min-width: 36px;
+  opacity: 0.6;
 }
 
 .delete-btn:hover {
-  background: rgba(255, 77, 79, 0.1);
+  opacity: 1;
+  background: rgba(255, 77, 79, 0.08);
 }
 
 .add-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  margin-top: 8px;
+  font-size: 12px;
+  height: 28px;
+  border-style: dashed;
+  border-color: #d9d9d9;
+  color: #8c8c8c;
 }
 
 .add-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: var(--color-primary-bg);
+  background: transparent;
 }
 </style>

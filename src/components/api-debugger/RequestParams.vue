@@ -81,67 +81,73 @@ const updateParam = (index: number, field: string, value: any) => {
 .params-editor {
   padding: 0;
   margin: 0;
-  min-height: auto;
 }
 
 .param-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  min-height: auto;
 }
 
 .param-item {
   display: grid;
-  grid-template-columns: 32px 180px 1fr 40px;
-  gap: 12px;
+  grid-template-columns: 24px 160px 1fr 36px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s ease;
+  padding: 6px 8px;
+  background: #fafafa;
+  border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .param-item:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 8px var(--color-primary-bg);
-}
-
-.param-name-input {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+  background: #f0f0f0;
 }
 
 .param-name-input :deep(.ant-input) {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #fff;
 }
 
-/* 按钮样式优化 */
+:deep(.ant-input) {
+  font-size: 12px;
+  background: #fff;
+}
+
+:deep(.ant-checkbox-wrapper) {
+  display: flex;
+  align-items: center;
+}
+
+/* 删除按钮优化 */
 .delete-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 40px;
+  font-size: 11px;
+  padding: 0;
+  height: 24px;
+  min-width: 36px;
+  opacity: 0.6;
 }
 
 .delete-btn:hover {
-  background: rgba(255, 77, 79, 0.1);
+  opacity: 1;
+  background: rgba(255, 77, 79, 0.08);
 }
 
+/* 添加按钮优化 */
 .add-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  margin-top: 8px;
+  font-size: 12px;
+  height: 28px;
+  border-style: dashed;
+  border-color: #d9d9d9;
+  color: #8c8c8c;
 }
 
 .add-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: var(--color-primary-bg);
+  background: transparent;
 }
 </style>

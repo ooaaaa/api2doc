@@ -122,7 +122,7 @@ watch(() => props.selectedApi, () => {
 
 .sidebar-toggle-btn {
   position: fixed;
-  top: 80px;
+  top: 64px;
   left: 16px;
   z-index: var(--z-dropdown);
   width: 32px;

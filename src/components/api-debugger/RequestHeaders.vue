@@ -5,7 +5,7 @@
       <div class="builtin-hint-header" @click="builtinExpanded = !builtinExpanded">
         <span class="builtin-collapse-icon" :class="{ expanded: builtinExpanded }">&#9654;</span>
         <span class="builtin-label">内置请求头 ({{ builtinHeaderCount }})</span>
-        <span class="builtin-tip">同名 Header 可覆盖</span>
+        <span class="builtin-tip-warning">手动添加同名 Header 可覆盖默认值</span>
         <a-switch
           v-model:checked="autoInjectModel"
           size="small"
@@ -136,11 +136,12 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
   gap: 12px;
 }
 
+/* 内置请求头优化 */
 .builtin-hint {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  padding: 10px 12px;
+  background: #f6ffed;
+  border: 1px solid #d3f261;
+  border-radius: 4px;
+  padding: 8px 10px;
 }
 
 .builtin-hint-header {
@@ -154,12 +155,20 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
 .builtin-label {
   font-size: 12px;
   font-weight: 500;
-  color: #166534;
+  color: #389e0d;
 }
 
 .builtin-tip {
   font-size: 11px;
-  color: #6b7280;
+  color: #8c8c8c;
+  margin-left: 4px;
+  flex: 1;
+}
+
+.builtin-tip-warning {
+  font-size: 11px;
+  color: #ff4d4f;
+  font-weight: 500;
   margin-left: 4px;
   flex: 1;
 }
@@ -168,19 +177,16 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 9px;
-  color: #6b7280;
-  background: #f3f4f6;
-  border-radius: 4px;
-  transition: transform 0.2s ease, background 0.15s ease, color 0.15s ease;
+  width: 16px;
+  height: 16px;
+  font-size: 8px;
+  color: #8c8c8c;
+  transition: transform 0.2s ease;
 }
 
 .builtin-collapse-icon.expanded {
   transform: rotate(90deg);
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  color: #52c41a;
 }
 
 .builtin-switch {
@@ -198,33 +204,33 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
   display: flex;
   align-items: baseline;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  padding: 4px 8px;
+  padding: 3px 8px;
   background: #fff;
-  border-radius: 4px;
-  border: 1px solid #dcfce7;
-  line-height: 1.5;
+  border-radius: 3px;
+  line-height: 1.6;
 }
 
 .builtin-header-name {
-  color: #166534;
+  color: #389e0d;
   font-weight: 600;
   flex-shrink: 0;
 }
 
 .builtin-header-sep {
-  color: #6b7280;
+  color: #8c8c8c;
   flex-shrink: 0;
 }
 
 .builtin-header-value {
-  color: #374151;
+  color: #595959;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* 手动请求头 - 与 Params 统一 */
 .manual-headers {
   padding: 0;
 }
@@ -232,58 +238,65 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
 .param-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .param-item {
   display: grid;
-  grid-template-columns: 32px 180px 1fr 40px;
-  gap: 12px;
+  grid-template-columns: 24px 160px 1fr 36px;
+  gap: 8px;
   align-items: center;
-  padding: 8px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s ease;
+  padding: 6px 8px;
+  background: #fafafa;
+  border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .param-item:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 8px var(--color-primary-bg);
-}
-
-.header-name-input {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+  background: #f0f0f0;
 }
 
 .header-name-input :deep(.ant-input) {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #fff;
+}
+
+:deep(.ant-input) {
+  font-size: 12px;
+  background: #fff;
+}
+
+:deep(.ant-checkbox-wrapper) {
+  display: flex;
+  align-items: center;
 }
 
 .delete-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 40px;
+  font-size: 11px;
+  padding: 0;
+  height: 24px;
+  min-width: 36px;
+  opacity: 0.6;
 }
 
 .delete-btn:hover {
-  background: rgba(255, 77, 79, 0.1);
+  opacity: 1;
+  background: rgba(255, 77, 79, 0.08);
 }
 
 .add-btn {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  margin-top: 8px;
+  font-size: 12px;
+  height: 28px;
+  border-style: dashed;
+  border-color: #d9d9d9;
+  color: #8c8c8c;
 }
 
 .add-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: var(--color-primary-bg);
+  background: transparent;
 }
 </style>
