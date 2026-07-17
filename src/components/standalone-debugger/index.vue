@@ -110,8 +110,20 @@
             </div>
           </div>
 
-          <!-- Path 参数区块（有内容或已展开时显示） -->
-          <div v-if="hasPathParams || expandedSections.path" class="request-section">
+          <!-- 压缩标签区：没有内容的区块以标签按钮呈现 -->
+          <div v-if="collapsedSectionTags.length > 0" class="collapsed-tags">
+            <button
+              v-for="tag in collapsedSectionTags"
+              :key="tag.key"
+              class="collapsed-tag-btn"
+              @click="expandCollapsedSection(tag.key)"
+            >
+              {{ tag.label }}
+            </button>
+          </div>
+
+          <!-- Path 参数区块（有内容或用户主动激活时显示） -->
+          <div v-if="shouldShowSection.path" class="request-section">
             <div class="section-header" @click="toggleSection('path')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.path }">&#9654;</span>
               <span class="section-title">Path 参数</span>
@@ -128,8 +140,8 @@
             </div>
           </div>
 
-          <!-- 请求头区块（有内容或已展开时显示） -->
-          <div v-if="hasHeaderParams || expandedSections.headers" class="request-section">
+          <!-- 请求头区块（有内容或用户主动激活时显示） -->
+          <div v-if="shouldShowSection.headers" class="request-section">
             <div class="section-header" @click="toggleSection('headers')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.headers }">&#9654;</span>
               <span class="section-title">请求头</span>
@@ -150,8 +162,8 @@
             </div>
           </div>
 
-          <!-- Cookie 区块（有内容或已展开时显示） -->
-          <div v-if="hasCookieParams || expandedSections.cookies" class="request-section">
+          <!-- Cookie 区块（有内容或用户主动激活时显示） -->
+          <div v-if="shouldShowSection.cookies" class="request-section">
             <div class="section-header" @click="toggleSection('cookies')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.cookies }">&#9654;</span>
               <span class="section-title">Cookie</span>
@@ -168,8 +180,8 @@
             </div>
           </div>
 
-          <!-- 请求体区块（有内容或已展开时显示，特殊接口隐藏） -->
-          <div v-if="!isSpecialInterface && (hasBodyContent || expandedSections.body)" class="request-section">
+          <!-- 请求体区块（有内容或用户主动激活时显示，特殊接口隐藏） -->
+          <div v-if="!isSpecialInterface && shouldShowSection.body" class="request-section">
             <div class="section-header" @click="toggleSection('body')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.body }">&#9654;</span>
               <span class="section-title">请求体</span>
@@ -210,18 +222,6 @@
             <a-button type="primary" @click="sendWebSocketMessage" style="margin-top: 8px">
               发送消息
             </a-button>
-          </div>
-
-          <!-- 压缩标签区：没有内容的区块以标签按钮呈现 -->
-          <div v-if="collapsedSectionTags.length > 0" class="collapsed-tags">
-            <button
-              v-for="tag in collapsedSectionTags"
-              :key="tag.key"
-              class="collapsed-tag-btn"
-              @click="expandCollapsedSection(tag.key)"
-            >
-              {{ tag.label }}
-            </button>
           </div>
         </div>
       </div>
@@ -481,13 +481,24 @@ const hasBodyContent = computed(() => {
   return !!bodyContent.value
 })
 
-// 压缩标签按钮列表：没有内容且不是特殊接口的区块
+// 用户主动激活的区块（点击标签按钮后标记，即使无内容也保持显示）
+const activatedSections = ref<Record<string, boolean>>({ path: false, headers: false, cookies: false, body: false })
+
+// 区块是否应该渲染为折叠面板（有内容或被用户主动激活）
+const shouldShowSection = computed(() => ({
+  path: hasPathParams.value || activatedSections.value.path,
+  headers: hasHeaderParams.value || activatedSections.value.headers,
+  cookies: hasCookieParams.value || activatedSections.value.cookies,
+  body: hasBodyContent.value || activatedSections.value.body
+}))
+
+// 压缩标签按钮列表：未渲染为折叠面板的区块
 const collapsedSectionTags = computed(() => {
   const tags: { key: 'path' | 'headers' | 'cookies' | 'body'; label: string }[] = []
-  if (!hasPathParams.value && !expandedSections.value.path) tags.push({ key: 'path', label: '+ Path 参数' })
-  if (!hasHeaderParams.value && !expandedSections.value.headers) tags.push({ key: 'headers', label: '+ 请求头' })
-  if (!hasCookieParams.value && !expandedSections.value.cookies) tags.push({ key: 'cookies', label: '+ Cookie' })
-  if (!isSpecialInterface.value && !hasBodyContent.value && !expandedSections.value.body) tags.push({ key: 'body', label: '+ 请求体' })
+  if (!shouldShowSection.value.path) tags.push({ key: 'path', label: '+ Path 参数' })
+  if (!shouldShowSection.value.headers) tags.push({ key: 'headers', label: '+ 请求头' })
+  if (!shouldShowSection.value.cookies) tags.push({ key: 'cookies', label: '+ Cookie' })
+  if (!isSpecialInterface.value && !shouldShowSection.value.body) tags.push({ key: 'body', label: '+ 请求体' })
   return tags
 })
 
@@ -738,6 +749,9 @@ const initFromApi = () => {
   activeBodyTab.value = parsed.bodyFormat
   formFields.value = parsed.formFields
   expandedSections.value = { ...parsed.expandedSections, cookies: false }
+
+  // 重置用户主动激活状态（由 hasXxx computed 接管显示逻辑）
+  activatedSections.value = { path: false, headers: false, cookies: false, body: false }
 
   // 尝试从缓存恢复
   const savedBody = restoreFromStorage(props.api, currentMethod.value, 'body')
@@ -1047,6 +1061,7 @@ const resetAll = () => {
     headerParameters.value = [{ name: '', value: '', enabled: true }]; bodyContent.value = ''; formFields.value = []; pathParameters.value = []
     cookieParameters.value = [{ name: '', value: '', enabled: true }]
     activeBodyTab.value = 'json'; expandedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
+    activatedSections.value = { path: false, headers: false, cookies: false, body: false }
   }
   resetResponseState()
 }
