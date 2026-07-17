@@ -77,6 +77,17 @@
           {{ sendButtonText }}
         </a-button>
       </div>
+      <!-- 压缩标签区：URL 栏下方，没有内容的区块以标签按钮呈现 -->
+      <div v-if="collapsedSectionTags.length > 0" class="collapsed-tags">
+        <button
+          v-for="tag in collapsedSectionTags"
+          :key="tag.key"
+          class="collapsed-tag-btn"
+          @click="expandCollapsedSection(tag.key)"
+        >
+          {{ tag.label }}
+        </button>
+      </div>
       <!-- 特殊接口提示 -->
       <a-alert
         v-if="isSpecialInterface"
@@ -92,8 +103,8 @@
       <!-- 左侧：请求配置（折叠面板） -->
       <div class="request-panel" :class="{ 'request-panel-embedded': embedded }">
         <div class="request-sections">
-          <!-- Query 参数区块（始终显示） -->
-          <div class="request-section">
+          <!-- Query 参数区块（有内容或用户主动激活时显示） -->
+          <div v-if="shouldShowSection.query" class="request-section">
             <div class="section-header" @click="toggleSection('query')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.query }">&#9654;</span>
               <span class="section-title">Query 参数</span>
@@ -108,18 +119,6 @@
                 @remove="removeQueryParam"
               />
             </div>
-          </div>
-
-          <!-- 压缩标签区：没有内容的区块以标签按钮呈现 -->
-          <div v-if="collapsedSectionTags.length > 0" class="collapsed-tags">
-            <button
-              v-for="tag in collapsedSectionTags"
-              :key="tag.key"
-              class="collapsed-tag-btn"
-              @click="expandCollapsedSection(tag.key)"
-            >
-              {{ tag.label }}
-            </button>
           </div>
 
           <!-- Path 参数区块（有内容或用户主动激活时显示） -->
@@ -473,6 +472,7 @@ const enabledCookieCount = computed(() => {
 })
 
 // 各区块是否「有内容」（决定显示折叠面板还是压缩为标签按钮）
+const hasQueryParams = computed(() => queryParameters.value.some(p => p.name))
 const hasPathParams = computed(() => pathParameters.value.some(p => p.name))
 const hasHeaderParams = computed(() => headerParameters.value.some(h => h.name))
 const hasCookieParams = computed(() => cookieParameters.value.some(c => c.name) || (cookieAutoInject.value && cookieJar.getMatchingCookies(computedUrl.value).length > 0))
@@ -482,10 +482,11 @@ const hasBodyContent = computed(() => {
 })
 
 // 用户主动激活的区块（点击标签按钮后标记，即使无内容也保持显示）
-const activatedSections = ref<Record<string, boolean>>({ path: false, headers: false, cookies: false, body: false })
+const activatedSections = ref<Record<string, boolean>>({ query: false, path: false, headers: false, cookies: false, body: false })
 
 // 区块是否应该渲染为折叠面板（有内容或被用户主动激活）
 const shouldShowSection = computed(() => ({
+  query: hasQueryParams.value || activatedSections.value.query,
   path: hasPathParams.value || activatedSections.value.path,
   headers: hasHeaderParams.value || activatedSections.value.headers,
   cookies: hasCookieParams.value || activatedSections.value.cookies,
@@ -494,8 +495,9 @@ const shouldShowSection = computed(() => ({
 
 // 压缩标签按钮列表：未渲染为折叠面板的区块
 const collapsedSectionTags = computed(() => {
-  const tags: { key: 'path' | 'headers' | 'cookies' | 'body'; label: string }[] = []
-  if (!shouldShowSection.value.path) tags.push({ key: 'path', label: '+ Path 参数' })
+  const tags: { key: 'query' | 'path' | 'headers' | 'cookies' | 'body'; label: string }[] = []
+  if (!shouldShowSection.value.query) tags.push({ key: 'query', label: '+ Query' })
+  if (!shouldShowSection.value.path) tags.push({ key: 'path', label: '+ Path' })
   if (!shouldShowSection.value.headers) tags.push({ key: 'headers', label: '+ 请求头' })
   if (!shouldShowSection.value.cookies) tags.push({ key: 'cookies', label: '+ Cookie' })
   if (!isSpecialInterface.value && !shouldShowSection.value.body) tags.push({ key: 'body', label: '+ 请求体' })
@@ -655,6 +657,7 @@ const syncUrlToParams = () => {
       if (entries.length > 0) {
         queryParameters.value = entries.map(([name, value]) => ({ name, value, enabled: true }))
         queryParameters.value.push({ name: '', value: '', enabled: true })
+        expandedSections.value.query = true
       } else {
         queryParameters.value = [{ name: '', value: '', enabled: true }]
       }
@@ -751,7 +754,7 @@ const initFromApi = () => {
   expandedSections.value = { ...parsed.expandedSections, cookies: false }
 
   // 重置用户主动激活状态（由 hasXxx computed 接管显示逻辑）
-  activatedSections.value = { path: false, headers: false, cookies: false, body: false }
+  activatedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
 
   // 尝试从缓存恢复
   const savedBody = restoreFromStorage(props.api, currentMethod.value, 'body')
@@ -1006,9 +1009,12 @@ const extractFilename = (r: Response): string => {
 const toggleSection = (s: keyof typeof expandedSections.value) => { expandedSections.value[s] = !expandedSections.value[s] }
 
 // 点击压缩标签按钮：展开对应区块并添加一行空参数（首次展开）
-const expandCollapsedSection = (key: 'path' | 'headers' | 'cookies' | 'body') => {
+const expandCollapsedSection = (key: 'query' | 'path' | 'headers' | 'cookies' | 'body') => {
+  activatedSections.value[key] = true
   expandedSections.value[key] = true
-  if (key === 'path' && pathParameters.value.length === 0) {
+  if (key === 'query' && !queryParameters.value.some(p => p.name)) {
+    queryParameters.value = [{ name: '', value: '', enabled: true }]
+  } else if (key === 'path' && pathParameters.value.length === 0) {
     pathParameters.value.push({ name: '', value: '', enabled: true })
   } else if (key === 'headers' && !headerParameters.value.some(h => h.name)) {
     headerParameters.value = [{ name: '', value: '', enabled: true }]
@@ -1042,6 +1048,7 @@ const handleUseCookie = (cookie: { name: string; value: string }) => {
     }
   }
   // 展开 Cookie 区块
+  activatedSections.value.cookies = true
   expandedSections.value.cookies = true
   message.success(`Cookie "${cookie.name}" 已添加到请求`)
 }
@@ -1061,7 +1068,7 @@ const resetAll = () => {
     headerParameters.value = [{ name: '', value: '', enabled: true }]; bodyContent.value = ''; formFields.value = []; pathParameters.value = []
     cookieParameters.value = [{ name: '', value: '', enabled: true }]
     activeBodyTab.value = 'json'; expandedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
-    activatedSections.value = { path: false, headers: false, cookies: false, body: false }
+    activatedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
   }
   resetResponseState()
 }
@@ -1254,13 +1261,12 @@ onUnmounted(() => { closeAllConnections(true) })
 .curl-import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
 
 /* 压缩标签区 */
-.collapsed-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 20px 12px; }
-.request-panel-embedded .collapsed-tags { padding: 10px 0 12px; }
+.collapsed-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .collapsed-tag-btn {
   display: inline-flex; align-items: center;
-  padding: 3px 10px; border-radius: 12px;
+  padding: 2px 10px; border-radius: 4px;
   font-size: 12px; color: #6b7280;
-  background: transparent;
+  background: #f9fafb;
   border: 1px dashed #d1d5db;
   cursor: pointer; transition: all 0.15s ease;
   line-height: 1.6;
