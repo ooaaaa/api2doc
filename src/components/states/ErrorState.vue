@@ -5,11 +5,11 @@
       <h2 class="error-title">后端 Swagger 服务错误</h2>
       <p class="error-message">无法连接到 API 文档服务，请检查后端服务是否正常运行</p>
       <div class="error-details">
-        <div class="error-detail-label">错误详情：</div>
         <div class="error-detail-text">{{ error }}</div>
+        <div class="error-explain">请检查后端 Swagger 服务是否正常运行，确认文档地址可访问</div>
       </div>
       <div class="error-actions">
-        <a-button type="primary" size="large" @click="handleRetry">
+        <a-button type="primary" :loading="retrying" @click="handleRetry">
           重新加载
         </a-button>
       </div>
@@ -26,6 +26,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
+
 // 定义Props
 interface Props {
   error: string
@@ -36,13 +38,25 @@ interface Emits {
   (e: 'retry'): void
 }
 
-defineProps<Props>()
-defineEmits<Emits>()
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
-// 重新加载：跳转到当前地址栏 URL
+const retrying = ref(false)
+
+// 重新加载：触发父组件重新加载数据
 const handleRetry = () => {
-  window.location.href = window.location.href
+  retrying.value = true
+  emit('retry')
 }
+
+// 监听 error 变化，如果 error 有值说明重试失败，恢复按钮状态
+watch(() => props.error, (newError) => {
+  if (newError && retrying.value) {
+    setTimeout(() => {
+      retrying.value = false
+    }, 500)
+  }
+})
 </script>
 
 <style scoped>
@@ -90,15 +104,6 @@ const handleRetry = () => {
   text-align: left;
 }
 
-.error-detail-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-error-text);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .error-detail-text {
   font-size: 13px;
   color: var(--color-text-secondary);
@@ -106,6 +111,15 @@ const handleRetry = () => {
   word-break: break-word;
   line-height: 1.5;
   white-space: pre-wrap;
+}
+
+.error-explain {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border-light);
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
 }
 
 .error-actions {

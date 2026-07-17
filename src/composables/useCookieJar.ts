@@ -211,6 +211,8 @@ function groupedByDomain(): Record<string, StoredCookie[]> {
   return groups
 }
 
+export type UseCookieJarReturn = ReturnType<typeof useCookieJar>
+
 export function useCookieJar() {
   removeExpired()
 

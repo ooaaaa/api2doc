@@ -56,7 +56,7 @@
             :total-apis="allApis.length"
             :total-tags="filteredTags.length"
             @toggle-sidebar="toggleSidebar"
-            @retry="loadSwaggerSpec"
+            @retry="handleRetry"
             @clear-search="searchText = ''"
           />
         </a-layout>
@@ -259,6 +259,15 @@ const getFilteredApisByTag = (tagPath: string) => {
 // 处理菜单点击
 const handleMenuClickWrapper = (event: any) => {
   handleMenuClick(event, allApis.value)
+}
+
+// 处理重试：重新加载数据并恢复 URL 状态
+const handleRetry = async () => {
+  await loadSwaggerSpec()
+  // 数据加载完成后，恢复 URL 状态（保持在当前页面）
+  setTimeout(() => {
+    restoreFromUrl(allApis.value)
+  }, 200)
 }
 
 // 保存监听器引用，确保 onUnmounted 能正确移除

@@ -14,6 +14,7 @@
         :value="editableUrl" 
         @update:value="handleUrlChange"
         @blur="handleUrlBlur"
+        @pressEnter="handleUrlBlur"
         class="url-input"
         placeholder="请求 URL"
       />

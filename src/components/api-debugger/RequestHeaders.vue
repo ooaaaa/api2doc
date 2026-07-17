@@ -3,10 +3,9 @@
     <!-- 内置默认请求头提示 -->
     <div class="builtin-hint">
       <div class="builtin-hint-header" @click="builtinExpanded = !builtinExpanded">
-        <span class="builtin-icon">&#x1f4e1;</span>
+        <span class="builtin-collapse-icon" :class="{ expanded: builtinExpanded }">&#9654;</span>
         <span class="builtin-label">内置请求头 ({{ builtinHeaderCount }})</span>
         <span class="builtin-tip">同名 Header 可覆盖</span>
-        <span class="builtin-toggle">{{ builtinExpanded ? '收起' : '展开' }}</span>
         <a-switch
           v-model:checked="autoInjectModel"
           size="small"
@@ -152,10 +151,6 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
   user-select: none;
 }
 
-.builtin-icon {
-  font-size: 14px;
-}
-
 .builtin-label {
   font-size: 12px;
   font-weight: 500;
@@ -169,16 +164,23 @@ const updateHeader = (index: number, field: string, value: string | boolean) => 
   flex: 1;
 }
 
-.builtin-toggle {
-  font-size: 11px;
-  color: #166534;
-  cursor: pointer;
-  margin-right: 8px;
-  user-select: none;
+.builtin-collapse-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 4px;
+  transition: transform 0.2s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.builtin-toggle:hover {
-  text-decoration: underline;
+.builtin-collapse-icon.expanded {
+  transform: rotate(90deg);
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
 }
 
 .builtin-switch {

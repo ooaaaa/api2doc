@@ -13,6 +13,26 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
   const swaggerSpec = ref<SwaggerSpec | null>(null)
   const actualUrl = ref('') // 记录实际成功的URL
 
+  /**
+   * 从代理 URL 中提取实际的文档地址
+   * 例如：/proxy?url=http%3A%2F%2Flocalhost%3A3010%2Fapi-docs -> http://localhost:3010/api-docs
+   */
+  const extractRealUrl = (url: string): string => {
+    try {
+      // 检查是否是代理 URL 格式
+      if (url.includes('/proxy?url=')) {
+        const urlObj = new URL(url, window.location.origin)
+        const realUrl = urlObj.searchParams.get('url')
+        if (realUrl) {
+          return decodeURIComponent(realUrl)
+        }
+      }
+      return url
+    } catch {
+      return url
+    }
+  }
+
   // 计算属性 - API基本信息
   const apiInfo = computed(() => ({
     title: swaggerSpec.value?.info.title || 'API 文档',
@@ -91,14 +111,16 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
           return
         }
         
-        errors.push(`${url} — ${result.error}`)
+        // 提取实际的文档地址用于错误提示
+        const displayUrl = extractRealUrl(url)
+        errors.push(`${displayUrl} — ${result.error}`)
       }
       
       // 所有URL都失败，附带原始错误信息
       throw new Error(
         urls.length > 1
           ? `无法从以下地址加载文档:\n${errors.join('\n')}`
-          : `无法加载文档: ${urls[0]}\n${errors[0]?.split(' — ')[1] || ''}`
+          : `无法加载文档: ${extractRealUrl(urls[0])}\n${errors[0]?.split(' — ')[1] || ''}`
       )
     } catch (e: any) {
       error.value = e.message

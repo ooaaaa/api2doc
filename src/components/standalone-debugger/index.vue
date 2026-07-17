@@ -20,9 +20,7 @@
           <template #icon><ReloadOutlined /></template>
           重置
         </a-button>
-        <a class="toolbar-btn back-link" :href="basePath" title="返回文档页">
-          返回文档
-        </a>
+        <a class="toolbar-btn back-link" :href="basePath" title="返回文档页">返回文档</a>
       </div>
     </div>
 
@@ -61,9 +59,9 @@
           v-model:value="editableUrl"
           class="url-input"
           :placeholder="embedded ? '请求 URL' : '输入请求 URL，例如 https://api.example.com/users'"
-          @pressEnter="handleSendOrConnect"
+          @pressEnter="handleUrlPressEnter"
+          @blur="handleUrlBlur"
         />
-
         <a-button
           :type="isActive ? 'default' : 'primary'"
           :danger="isActive"
@@ -77,182 +75,156 @@
           {{ sendButtonText }}
         </a-button>
       </div>
-      <!-- 压缩标签区：URL 栏下方，没有内容的区块以标签按钮呈现 -->
-      <div v-if="collapsedSectionTags.length > 0" class="collapsed-tags">
-        <button
-          v-for="tag in collapsedSectionTags"
-          :key="tag.key"
-          class="collapsed-tag-btn"
-          @click="expandCollapsedSection(tag.key)"
-        >
-          {{ tag.label }}
-        </button>
-      </div>
       <!-- 特殊接口提示 -->
-      <a-alert
-        v-if="isSpecialInterface"
-        :message="specialInterfaceTip"
-        type="info"
-        show-icon
-        style="margin-top: 12px"
-      />
+      <a-alert v-if="isSpecialInterface" :message="specialInterfaceTip" type="info" show-icon style="margin-top: 12px" />
+    </div>
+
+    <!-- Tab 导航栏 -->
+    <div class="tab-bar" :class="{ 'tab-bar-embedded': embedded }">
+      <button
+        v-for="tab in visibleTabs"
+        :key="tab.key"
+        class="tab-item"
+        :class="{ active: activeTab === tab.key }"
+        @click="activeTab = tab.key"
+      >
+        {{ tab.label }}
+        <span v-if="tab.badge > 0" class="tab-badge">{{ tab.badge }}</span>
+      </button>
     </div>
 
     <!-- 主体区域 -->
     <div class="debugger-body" :class="{ 'debugger-body-embedded': embedded }">
-      <!-- 左侧：请求配置（折叠面板） -->
+      <!-- 请求配置区（Tab 内容） -->
       <div class="request-panel" :class="{ 'request-panel-embedded': embedded }">
-        <div class="request-sections">
-          <!-- Query 参数区块（有内容或用户主动激活时显示） -->
-          <div v-if="shouldShowSection.query" class="request-section">
-            <div class="section-header" @click="toggleSection('query')">
-              <span class="collapse-icon" :class="{ expanded: expandedSections.query }">&#9654;</span>
-              <span class="section-title">Query 参数</span>
-              <span class="section-badge" v-if="enabledQueryCount > 0">{{ enabledQueryCount }}</span>
-            </div>
-            <div v-show="expandedSections.query" class="section-content">
-              <RequestParams
-                v-model:parameters="queryParameters"
-                type="query"
-                add-button-text="添加参数"
-                @add="addQueryParam"
-                @remove="removeQueryParam"
-              />
-            </div>
-          </div>
-
-          <!-- Path 参数区块（有内容或用户主动激活时显示） -->
-          <div v-if="shouldShowSection.path" class="request-section">
-            <div class="section-header" @click="toggleSection('path')">
-              <span class="collapse-icon" :class="{ expanded: expandedSections.path }">&#9654;</span>
-              <span class="section-title">Path 参数</span>
-              <span class="section-badge" v-if="pathParameters.length > 0">{{ pathParameters.length }}</span>
-            </div>
-            <div v-show="expandedSections.path" class="section-content">
-              <RequestParams
-                v-model:parameters="pathParameters"
-                type="path"
-                add-button-text="添加 Path 参数"
-                @add="addPathParam"
-                @remove="removePathParam"
-              />
-            </div>
-          </div>
-
-          <!-- 请求头区块（有内容或用户主动激活时显示） -->
-          <div v-if="shouldShowSection.headers" class="request-section">
-            <div class="section-header" @click="toggleSection('headers')">
-              <span class="collapse-icon" :class="{ expanded: expandedSections.headers }">&#9654;</span>
-              <span class="section-title">请求头</span>
-              <span class="section-badge" v-if="enabledHeadersCount > 0">{{ enabledHeadersCount }}</span>
-            </div>
-            <div v-show="expandedSections.headers" class="section-content">
-              <RequestHeaders
-                :headers="headerParameters"
-                v-model:auto-inject="headerAutoInject"
-                :method="currentMethod"
-                :url="computedUrl"
-                :interface-type="interfaceType"
-                :content-type="getContentType()"
-                @update:headers="headerParameters = $event"
-                @add="addHeaderParam"
-                @remove="removeHeaderParam"
-              />
-            </div>
-          </div>
-
-          <!-- Cookie 区块（有内容或用户主动激活时显示） -->
-          <div v-if="shouldShowSection.cookies" class="request-section">
-            <div class="section-header" @click="toggleSection('cookies')">
-              <span class="collapse-icon" :class="{ expanded: expandedSections.cookies }">&#9654;</span>
-              <span class="section-title">Cookie</span>
-              <span class="section-badge" v-if="enabledCookieCount > 0">{{ enabledCookieCount }}</span>
-            </div>
-            <div v-show="expandedSections.cookies" class="section-content">
-              <RequestCookies
-                v-model:cookies="cookieParameters"
-                v-model:auto-inject="cookieAutoInject"
-                :request-url="computedUrl"
-                @add="addCookieParam"
-                @remove="removeCookieParam"
-              />
-            </div>
-          </div>
-
-          <!-- 请求体区块（有内容或用户主动激活时显示，特殊接口隐藏） -->
-          <div v-if="!isSpecialInterface && shouldShowSection.body" class="request-section">
-            <div class="section-header" @click="toggleSection('body')">
-              <span class="collapse-icon" :class="{ expanded: expandedSections.body }">&#9654;</span>
-              <span class="section-title">请求体</span>
-              <div class="section-header-actions" @click.stop>
-                <a-select
-                  v-model:value="activeBodyTab"
-                  size="small"
-                  class="body-format-select"
-                >
-                  <a-select-option value="json">JSON</a-select-option>
-                  <a-select-option value="form">Form</a-select-option>
-                  <a-select-option value="xml">XML</a-select-option>
-                  <a-select-option value="text">Text</a-select-option>
-                </a-select>
-              </div>
-            </div>
-            <div v-show="expandedSections.body" class="section-content">
-              <RequestBody
-                v-model:active-body-tab="activeBodyTab"
-                v-model:body-content="bodyContent"
-                v-model:form-fields="formFields"
-                @add-form-field="addFormField"
-                @remove-form-field="removeFormField"
-                @file-change="handleFileChange"
-              />
-            </div>
-          </div>
-
-          <!-- WebSocket 消息输入（连接后显示） -->
-          <div v-if="interfaceType === 'websocket' && wsConnected" class="ws-message-section">
-            <CodeEditor
-              v-model="wsMessage"
-              language="json"
-              :readonly="false"
-              min-height="100px"
-              max-height="200px"
-            />
-            <a-button type="primary" @click="sendWebSocketMessage" style="margin-top: 8px">
-              发送消息
+        <!-- Params Tab：Query + Path -->
+        <div v-show="activeTab === 'params'" class="tab-content">
+          <div class="tab-content-toolbar">
+            <a-button size="small" type="text" @click="openImport('params')">
+              <template #icon><ImportOutlined /></template>
+              批量导入
             </a-button>
           </div>
+          <div class="param-group">
+            <div class="param-group-title">Query 参数</div>
+            <RequestParams
+              v-model:parameters="queryParameters"
+              type="query"
+              add-button-text="添加参数"
+              @add="addQueryParam"
+              @remove="removeQueryParam"
+            />
+          </div>
+          <div v-if="pathParameters.length > 0" class="param-group">
+            <div class="param-group-title">Path 参数</div>
+            <RequestParams
+              v-model:parameters="pathParameters"
+              type="path"
+              add-button-text="添加 Path 参数"
+              @add="addPathParam"
+              @remove="removePathParam"
+            />
+          </div>
+        </div>
+
+        <!-- Headers Tab -->
+        <div v-show="activeTab === 'headers'" class="tab-content">
+          <div class="tab-content-toolbar">
+            <a-button size="small" type="text" @click="openImport('headers')">
+              <template #icon><ImportOutlined /></template>
+              批量导入
+            </a-button>
+          </div>
+          <RequestHeaders
+            :headers="headerParameters"
+            v-model:auto-inject="headerAutoInject"
+            :method="currentMethod"
+            :url="computedUrl"
+            :interface-type="interfaceType"
+            :content-type="request.getContentType()"
+            @update:headers="headerParameters = $event"
+            @add="addHeaderParam"
+            @remove="removeHeaderParam"
+          />
+        </div>
+
+        <!-- Body Tab -->
+        <div v-show="activeTab === 'body'" class="tab-content">
+          <div class="body-format-bar">
+            <a-select v-model:value="activeBodyTab" size="small" class="body-format-select">
+              <a-select-option value="json">JSON</a-select-option>
+              <a-select-option value="form">Form</a-select-option>
+              <a-select-option value="xml">XML</a-select-option>
+              <a-select-option value="text">Text</a-select-option>
+            </a-select>
+            <span class="body-format-spacer"></span>
+            <a-button size="small" type="text" @click="openImport('body')">
+              <template #icon><ImportOutlined /></template>
+              批量导入
+            </a-button>
+          </div>
+          <RequestBody
+            v-model:active-body-tab="activeBodyTab"
+            v-model:body-content="bodyContent"
+            v-model:form-fields="formFields"
+            @add-form-field="addFormField"
+            @remove-form-field="removeFormField"
+            @file-change="handleFileChange"
+          />
+        </div>
+
+        <!-- Cookies Tab -->
+        <div v-show="activeTab === 'cookies'" class="tab-content">
+          <div class="tab-content-toolbar">
+            <a-button size="small" type="text" @click="openImport('cookies')">
+              <template #icon><ImportOutlined /></template>
+              批量导入
+            </a-button>
+          </div>
+          <RequestCookies
+            v-model:cookies="cookieParameters"
+            v-model:auto-inject="cookieAutoInject"
+            :request-url="computedUrl"
+            @add="addCookieParam"
+            @remove="removeCookieParam"
+          />
+        </div>
+
+        <!-- WebSocket 消息输入 -->
+        <div v-if="interfaceType === 'websocket' && request.wsConnected.value" class="ws-message-section">
+          <CodeEditor v-model="request.wsMessage.value" language="json" :readonly="false" min-height="100px" max-height="200px" />
+          <a-button type="primary" @click="request.sendWebSocketMessage" style="margin-top: 8px">发送消息</a-button>
         </div>
       </div>
 
-      <!-- 右侧：响应结果 -->
+      <!-- 响应结果 -->
       <div class="response-panel" :class="{ 'response-panel-embedded': embedded }">
         <ResponseViewer
-          v-if="hasResult"
-          :result="responseResult"
-          :display-result="displayResult"
-          :status="responseStatus"
-          :can-beautify="canBeautify"
-          :is-image-response="isImageResponse"
-          :image-preview-url="imagePreviewUrl"
-          :image-info="imageInfo"
+          v-if="request.hasResult.value"
+          :result="request.responseResult.value"
+          :display-result="request.displayResult.value"
+          :status="request.responseStatus.value"
+          :can-beautify="request.canBeautify.value"
+          :is-image-response="request.isImageResponse.value"
+          :image-preview-url="request.imagePreviewUrl.value"
+          :image-info="request.imageInfo.value"
           :is-special-interface="isSpecialInterface"
-          :is-binary-response="isBinaryResponse"
-          :binary-content-type="binaryContentType"
-          :binary-size="binarySize"
-          :binary-filename="binaryFilename"
-          :duration="responseTiming.duration"
-          :response-headers="responseHeaders"
+          :is-binary-response="request.isBinaryResponse.value"
+          :binary-content-type="request.binaryContentType.value"
+          :binary-size="request.binarySize.value"
+          :binary-filename="request.binaryFilename.value"
+          :duration="request.responseTiming.value.duration"
+          :response-headers="request.responseHeaders.value"
           :request-method="currentMethod"
           :request-url="computedUrl"
           :request-headers="actualRequestHeaders"
           :request-body="bodyContent"
-          @copy="copyResponse"
-          @beautify="beautifyResponse"
-          @clear="clearResult"
+          @copy="request.copyResponse"
+          @beautify="request.beautifyResponse"
+          @clear="request.clearResult"
           @maximize="maximizedModalVisible = true"
-          @download-image="downloadImage"
-          @download-binary="downloadBinary"
+          @download-image="request.downloadImage"
+          @download-binary="request.downloadBinary"
           @use-cookie="handleUseCookie"
         />
         <div v-else class="empty-response">
@@ -266,23 +238,20 @@
       </div>
     </div>
 
-    <!-- 请求完整过程（与请求/响应同级，响应成功后展示） -->
-    <div v-if="hasResult && !isSpecialInterface" class="full-transaction-panel" :class="{ 'full-transaction-embedded': embedded }">
+    <!-- 请求完整过程 -->
+    <div v-if="request.hasResult.value && !isSpecialInterface" class="full-transaction-panel" :class="{ 'full-transaction-embedded': embedded }">
       <div class="transaction-header" @click="transactionExpanded = !transactionExpanded">
         <span class="collapse-icon" :class="{ expanded: transactionExpanded }">&#9654;</span>
         <span class="transaction-title">请求完整过程</span>
         <span class="transaction-meta">
-          {{ currentMethod }} {{ transactionRequestPath }} → {{ responseStatus }} {{ transactionStatusText }}
+          {{ currentMethod }} {{ transactionRequestPath }} → {{ request.responseStatus.value }} {{ transactionStatusText }}
         </span>
         <div class="transaction-actions" @click.stop>
-          <a-button size="small" type="text" @click="copyFullTransaction" class="action-btn">
-            复制全部
-          </a-button>
+          <a-button size="small" type="text" @click="copyFullTransaction" class="action-btn">复制全部</a-button>
         </div>
       </div>
       <div v-show="transactionExpanded" class="transaction-content">
         <div class="transaction-blocks">
-          <!-- 请求报文 -->
           <div class="transaction-block">
             <div class="transaction-block-label">Request</div>
             <pre class="transaction-raw"><span class="raw-request-line">{{ transactionRequestLine }}</span>
@@ -290,12 +259,11 @@
 </template><template v-if="bodyContent">
 <span class="raw-body">{{ bodyContent }}</span></template></pre>
           </div>
-          <!-- 响应报文 -->
           <div class="transaction-block">
             <div class="transaction-block-label">Response</div>
-            <pre class="transaction-raw"><span class="raw-status-line">HTTP/1.1 {{ responseStatus }} {{ transactionStatusText }}</span>
-<template v-for="(value, key) in responseHeaders" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
-</template><template v-if="responseResult">
+            <pre class="transaction-raw"><span class="raw-status-line">HTTP/1.1 {{ request.responseStatus.value }} {{ transactionStatusText }}</span>
+<template v-for="(value, key) in request.responseHeaders.value" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
+</template><template v-if="request.responseResult.value">
 <span class="raw-body">{{ transactionResponseBody }}</span></template></pre>
           </div>
         </div>
@@ -303,61 +271,74 @@
     </div>
 
     <!-- 最大化弹窗 -->
-    <a-modal
-      v-model:open="maximizedModalVisible"
-      title="响应结果"
-      width="90%"
-      :footer="null"
-      :bodyStyle="{ padding: '16px', maxHeight: '80vh', overflow: 'auto' }"
-    >
+    <a-modal v-model:open="maximizedModalVisible" title="响应结果" width="90%" :footer="null" :bodyStyle="{ padding: '16px', maxHeight: '80vh', overflow: 'auto' }">
       <ResponseViewer
-        v-if="hasResult"
-        :result="responseResult"
-        :display-result="displayResult"
-        :status="responseStatus"
-        :can-beautify="canBeautify"
-        :is-image-response="isImageResponse"
-        :image-preview-url="imagePreviewUrl"
-        :image-info="imageInfo"
+        v-if="request.hasResult.value"
+        :result="request.responseResult.value"
+        :display-result="request.displayResult.value"
+        :status="request.responseStatus.value"
+        :can-beautify="request.canBeautify.value"
+        :is-image-response="request.isImageResponse.value"
+        :image-preview-url="request.imagePreviewUrl.value"
+        :image-info="request.imageInfo.value"
         :is-special-interface="isSpecialInterface"
-        :is-binary-response="isBinaryResponse"
-        :binary-content-type="binaryContentType"
-        :binary-size="binarySize"
-        :binary-filename="binaryFilename"
-        :duration="responseTiming.duration"
-        :response-headers="responseHeaders"
+        :is-binary-response="request.isBinaryResponse.value"
+        :binary-content-type="request.binaryContentType.value"
+        :binary-size="request.binarySize.value"
+        :binary-filename="request.binaryFilename.value"
+        :duration="request.responseTiming.value.duration"
+        :response-headers="request.responseHeaders.value"
         :request-method="currentMethod"
         :request-url="computedUrl"
         :request-headers="actualRequestHeaders"
         :request-body="bodyContent"
-        @copy="copyResponse"
-        @beautify="beautifyResponse"
-        @clear="clearResult"
+        @copy="request.copyResponse"
+        @beautify="request.beautifyResponse"
+        @clear="request.clearResult"
         @maximize="() => {}"
-        @download-image="downloadImage"
-        @download-binary="downloadBinary"
+        @download-image="request.downloadImage"
+        @download-binary="request.downloadBinary"
         @use-cookie="handleUseCookie"
       />
     </a-modal>
 
     <!-- cURL 导入弹窗 -->
     <a-modal
-      v-model:open="curlImportVisible"
+      v-model:open="curl.curlImportVisible.value"
       title="导入 cURL"
       :width="600"
       :mask-closable="false"
       :keyboard="false"
-      @ok="handleCurlImport"
+      @ok="curl.handleCurlImport"
       ok-text="导入"
       cancel-text="取消"
     >
       <p class="curl-import-tip">粘贴 cURL 命令，将自动解析为请求参数</p>
       <a-textarea
-        v-model:value="curlImportText"
+        v-model:value="curl.curlImportText.value"
         :rows="10"
         placeholder="curl -X POST 'https://api.example.com/users' \
   -H 'Content-Type: application/json' \
   -d '{&quot;name&quot;: &quot;test&quot;}'"
+        class="curl-import-textarea"
+      />
+    </a-modal>
+
+    <!-- 批量导入弹窗 -->
+    <a-modal
+      v-model:open="importModalVisible"
+      :title="importModalTitle"
+      :width="560"
+      :mask-closable="false"
+      @ok="handleImportConfirm"
+      ok-text="导入"
+      cancel-text="取消"
+    >
+      <p class="import-tip">{{ importModalHint }}</p>
+      <a-textarea
+        v-model:value="importText"
+        :rows="8"
+        :placeholder="importModalPlaceholder"
         class="curl-import-textarea"
       />
     </a-modal>
@@ -375,15 +356,13 @@ import RequestBody from '../api-debugger/RequestBody/index.vue'
 import ResponseViewer from '../api-debugger/ResponseViewer.vue'
 import CodeEditor from '../CodeEditor.vue'
 import Api2DocLogo from '../Api2DocLogo.vue'
-import { useHttpRequest } from '../api-debugger/composables/useHttpRequest'
-import { useWebSocket } from '../api-debugger/composables/useWebSocket'
-import { useSSE } from '../api-debugger/composables/useSSE'
-import { useCookieJar } from '../../composables/useCookieJar'
 import { parseApiToParams, detectInterfaceType, saveToStorage, restoreFromStorage, clearStorage } from '../api-debugger/composables/useApiToParams'
 import type { DebuggerParameter, DebuggerFormField, InterfaceType } from '../api-debugger/composables/useApiToParams'
 import type { UploadChangeParam } from 'ant-design-vue'
-import { parseCurl } from '../../utils/curl-parser'
 import { generateRequestHeaders } from '../../utils/request-headers'
+import { useDebuggerRequest } from './composables/useDebuggerRequest'
+import { useDebuggerCurl } from './composables/useDebuggerCurl'
+import { useCookieJar } from '../../composables/useCookieJar'
 
 interface Props {
   embedded?: boolean
@@ -401,130 +380,51 @@ const props = withDefaults(defineProps<Props>(), {
 
 defineEmits<{ toggleCode: [] }>()
 
-const http = useHttpRequest()
-const ws = useWebSocket()
-const sse = useSSE()
 const basePath = import.meta.env.BASE_URL || '/'
 const allMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
 
-// 状态
+// ========== 状态 ==========
 const currentMethod = ref('GET')
 const requestUrl = ref('')
 const editableUrl = ref('')
-const activeBodyTab = ref<'json' | 'form' | 'xml' | 'text'>('json')
-const bodyContent = ref('')
 const maximizedModalVisible = ref(false)
-const wsMessage = ref('{}')
 const transactionExpanded = ref(false)
+const activeTab = ref<'params' | 'headers' | 'body' | 'cookies'>('params')
 
-const expandedSections = ref({ query: false, path: false, headers: false, cookies: false, body: false })
+// 参数数据
 const pathParameters = ref<DebuggerParameter[]>([])
 const queryParameters = ref<DebuggerParameter[]>([{ name: '', value: '', enabled: true }])
 const headerParameters = ref<DebuggerParameter[]>([{ name: '', value: '', enabled: true }])
-const formFields = ref<DebuggerFormField[]>([])
-
-// Cookie 相关状态
-const cookieJar = useCookieJar()
 const cookieParameters = ref<{ name: string; value: string; enabled: boolean }[]>([{ name: '', value: '', enabled: true }])
+const formFields = ref<DebuggerFormField[]>([])
+const bodyContent = ref('')
+const activeBodyTab = ref<'json' | 'form' | 'xml' | 'text'>('json')
+
+// Cookie
+const cookieJar = useCookieJar()
 const cookieAutoInject = ref(true)
 const headerAutoInject = ref(true)
 
-// 响应状态
-const responseResult = ref('')
-const responseStatus = ref(0)
-const responseHeaders = ref<Record<string, string>>({})
-const responseTiming = ref<{ startTime?: Date; endTime?: Date; duration?: number }>({})
-const isBeautified = ref(false)
-const isImageResponse = ref(false)
-const imagePreviewUrl = ref('')
-const imageBlob = ref<Blob | null>(null)
-const imageInfo = ref('')
-const isBinaryResponse = ref(false)
-const binaryBlob = ref<Blob | null>(null)
-const binaryContentType = ref('')
-const binarySize = ref('')
-const binaryFilename = ref('')
-
-// 计算属性
+// ========== 计算属性 ==========
 const interfaceType = computed<InterfaceType>(() => {
-  if (props.api) {
-    return detectInterfaceType(computedUrl.value, (props.api.summary as string) || '')
-  }
+  if (props.api) return detectInterfaceType(computedUrl.value, (props.api.summary as string) || '')
   return 'http'
 })
 const isSpecialInterface = computed(() => interfaceType.value !== 'http')
-const wsConnected = computed(() => ws.connected.value)
-const sseConnected = computed(() => sse.connected.value)
-
-const isActive = computed(() => {
-  if (interfaceType.value === 'websocket') return wsConnected.value
-  if (interfaceType.value === 'sse') return sseConnected.value
-  return http.testing.value
-})
-
-const hasResult = computed(() => responseResult.value !== '')
-const enabledQueryCount = computed(() => queryParameters.value.filter(p => p.enabled && p.name && p.value).length)
-const enabledHeadersCount = computed(() => headerParameters.value.filter(h => h.enabled && h.name && h.value).length)
-const enabledCookieCount = computed(() => {
-  const manual = cookieParameters.value.filter(c => c.enabled && c.name && c.value).length
-  const jar = cookieAutoInject.value ? cookieJar.getMatchingCookies(computedUrl.value).length : 0
-  return manual + jar
-})
-
-// 各区块是否「有内容」（决定显示折叠面板还是压缩为标签按钮）
-const hasQueryParams = computed(() => queryParameters.value.some(p => p.name))
-const hasPathParams = computed(() => pathParameters.value.some(p => p.name))
-const hasHeaderParams = computed(() => headerParameters.value.some(h => h.name))
-const hasCookieParams = computed(() => cookieParameters.value.some(c => c.name) || (cookieAutoInject.value && cookieJar.getMatchingCookies(computedUrl.value).length > 0))
-const hasBodyContent = computed(() => {
-  if (activeBodyTab.value === 'form') return formFields.value.some(f => f.name)
-  return !!bodyContent.value
-})
-
-// 用户主动激活的区块（点击标签按钮后标记，即使无内容也保持显示）
-const activatedSections = ref<Record<string, boolean>>({ query: false, path: false, headers: false, cookies: false, body: false })
-
-// 区块是否应该渲染为折叠面板（有内容或被用户主动激活）
-const shouldShowSection = computed(() => ({
-  query: hasQueryParams.value || activatedSections.value.query,
-  path: hasPathParams.value || activatedSections.value.path,
-  headers: hasHeaderParams.value || activatedSections.value.headers,
-  cookies: hasCookieParams.value || activatedSections.value.cookies,
-  body: hasBodyContent.value || activatedSections.value.body
-}))
-
-// 压缩标签按钮列表：未渲染为折叠面板的区块
-const collapsedSectionTags = computed(() => {
-  const tags: { key: 'query' | 'path' | 'headers' | 'cookies' | 'body'; label: string }[] = []
-  if (!shouldShowSection.value.query) tags.push({ key: 'query', label: '+ Query' })
-  if (!shouldShowSection.value.path) tags.push({ key: 'path', label: '+ Path' })
-  if (!shouldShowSection.value.headers) tags.push({ key: 'headers', label: '+ 请求头' })
-  if (!shouldShowSection.value.cookies) tags.push({ key: 'cookies', label: '+ Cookie' })
-  if (!isSpecialInterface.value && !shouldShowSection.value.body) tags.push({ key: 'body', label: '+ 请求体' })
-  return tags
-})
 
 const availableMethods = computed(() => {
-  if (props.api?.method === 'MULTI' && Array.isArray(props.api.methodList)) {
-    return props.api.methodList as string[]
-  }
-  if (props.api?.method) {
-    const m = props.api.method as string
-    return [m, ...allMethods.filter(x => x !== m)]
-  }
+  if (props.api?.method === 'MULTI' && Array.isArray(props.api.methodList)) return props.api.methodList as string[]
+  if (props.api?.method) { const m = props.api.method as string; return [m, ...allMethods.filter(x => x !== m)] }
   return allMethods
 })
 
 const computedUrl = computed(() => {
   if (!props.api) {
     let url = requestUrl.value
-    // 独立模式：将 path 参数替换到 URL 中
     pathParameters.value.forEach(p => {
-      if (p.name && p.value && p.enabled) {
-        url = url.replace(`{${p.name}}`, encodeURIComponent(p.value))
-      }
+      if (p.name && p.value && p.enabled) url = url.replace(`{${p.name}}`, encodeURIComponent(p.value))
     })
-    const enabled = queryParameters.value.filter(p => p.enabled && p.name && p.value)
+    const enabled = queryParameters.value.filter(p => p.enabled && p.name)
     if (enabled.length > 0) {
       const sep = url.includes('?') ? '&' : '?'
       url += sep + enabled.map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`).join('&')
@@ -532,40 +432,61 @@ const computedUrl = computed(() => {
     return url
   }
   let url = `${props.baseUrl}${props.api.path as string}`
-  pathParameters.value.forEach(p => { url = url.replace(`{${p.name}}`, p.value || 'value') })
-  const enabled = queryParameters.value.filter(p => p.enabled && p.name && p.value)
+  pathParameters.value.forEach(p => {
+    if (!p.name) return
+    const value = p.enabled && p.value ? encodeURIComponent(p.value) : `{${p.name}}`
+    url = url.replace(`{${p.name}}`, value)
+  })
+  const enabled = queryParameters.value.filter(p => p.enabled && p.name)
   if (enabled.length > 0) {
-    url += '?' + enabled.map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`).join('&')
+    const searchParams = new URLSearchParams()
+    enabled.forEach(p => searchParams.append(p.name, p.value))
+    url += `?${searchParams.toString()}`
   }
   return url
 })
 
-const displayResult = computed(() => {
-  if (!isBeautified.value) return responseResult.value
-  try { return JSON.stringify(JSON.parse(responseResult.value), null, 2) } catch { return responseResult.value }
+// Tab 栏数据（始终可见，badge 显示数量）
+const paramsBadge = computed(() => {
+  const q = queryParameters.value.filter(p => p.enabled && p.name && p.value).length
+  const p = pathParameters.value.filter(x => x.enabled && x.name && x.value).length
+  return q + p
 })
-const canBeautify = computed(() => { try { JSON.parse(responseResult.value); return true } catch { return false } })
+const headersBadge = computed(() => headerParameters.value.filter(h => h.enabled && h.name && h.value).length)
+const bodyBadge = computed(() => {
+  if (activeBodyTab.value === 'form') return formFields.value.filter(f => f.enabled && f.name).length
+  return bodyContent.value ? 1 : 0
+})
+const cookiesBadge = computed(() => {
+  const manual = cookieParameters.value.filter(c => c.enabled && c.name && c.value).length
+  const jar = cookieAutoInject.value ? cookieJar.getMatchingCookies(computedUrl.value).length : 0
+  return manual + jar
+})
+
+const visibleTabs = computed(() => {
+  const tabs: { key: 'params' | 'headers' | 'body' | 'cookies'; label: string; badge: number }[] = [
+    { key: 'params', label: 'Params', badge: paramsBadge.value },
+    { key: 'headers', label: 'Headers', badge: headersBadge.value }
+  ]
+  if (!isSpecialInterface.value) {
+    tabs.push({ key: 'body', label: 'Body', badge: bodyBadge.value })
+  }
+  tabs.push({ key: 'cookies', label: 'Cookies', badge: cookiesBadge.value })
+  return tabs
+})
 
 const actualRequestHeaders = computed(() => {
   const custom: Record<string, string> = {}
   headerParameters.value.forEach(x => { if (x.enabled && x.name && x.value) custom[x.name] = x.value })
   if (!headerAutoInject.value) return custom
-  // 内置请求头 + 用户自定义（自定义优先覆盖）
   const builtin = generateRequestHeaders({
     method: currentMethod.value,
     url: computedUrl.value,
     interfaceType: interfaceType.value,
-    contentType: getContentType(),
+    contentType: request.getContentType(),
     customHeaders: {}
   })
   return { ...builtin, ...custom }
-})
-
-const sendButtonText = computed(() => {
-  if (interfaceType.value === 'websocket') return wsConnected.value ? '断开' : '连接'
-  if (interfaceType.value === 'sse') return sseConnected.value ? '停止接收' : '开始接收'
-  if (interfaceType.value === 'streamable') return http.testing.value ? '停止' : '开始接收'
-  return http.testing.value ? '停止' : '发送请求'
 })
 
 const specialInterfaceTip = computed(() => {
@@ -575,7 +496,37 @@ const specialInterfaceTip = computed(() => {
   return ''
 })
 
-// 请求完整过程相关
+// ========== 请求逻辑 ==========
+const request = useDebuggerRequest({
+  computedUrl: () => computedUrl.value,
+  currentMethod: () => currentMethod.value,
+  interfaceType: () => interfaceType.value,
+  headerParameters: () => headerParameters.value,
+  cookieParameters: () => cookieParameters.value,
+  cookieAutoInject: () => cookieAutoInject.value,
+  cookieJar,
+  bodyContent: () => bodyContent.value,
+  activeBodyTab: () => activeBodyTab.value,
+  formFields: () => formFields.value
+})
+
+const { handleSendOrConnect: sendOrConnect, handleAbort, isActive, sendButtonText } = request
+
+// ========== cURL ==========
+const curl = useDebuggerCurl({
+  currentMethod, editableUrl, requestUrl,
+  queryParameters, headerParameters, bodyContent, activeBodyTab,
+  expandedSections: ref({ query: false, path: false, headers: false, cookies: false, body: false }),
+  cookieParameters, cookieAutoInject, cookieJar,
+  formFields: formFields as unknown as { value: { name: string; value: string; type: string; enabled: boolean }[] },
+  isApiMode: !!props.api,
+  getComputedUrl: () => computedUrl.value,
+  getContentType: () => request.getContentType()
+})
+
+const { openCurlImport, copyAsCurl } = curl
+
+// ========== 请求完整过程 ==========
 const transactionStatusText = computed(() => {
   const map: Record<number, string> = {
     200: 'OK', 201: 'Created', 204: 'No Content',
@@ -585,162 +536,113 @@ const transactionStatusText = computed(() => {
     500: 'Internal Server Error', 502: 'Bad Gateway',
     503: 'Service Unavailable', 504: 'Gateway Timeout'
   }
-  return map[responseStatus.value] || (responseStatus.value >= 200 && responseStatus.value < 300 ? 'OK' : 'Error')
+  const s = request.responseStatus.value
+  return map[s] || (s >= 200 && s < 300 ? 'OK' : 'Error')
 })
-
 const transactionRequestPath = computed(() => {
-  try {
-    const url = new URL(computedUrl.value)
-    return url.pathname + url.search
-  } catch {
-    return computedUrl.value
-  }
+  try { const url = new URL(computedUrl.value); return url.pathname + url.search } catch { return computedUrl.value }
 })
-
-const transactionRequestLine = computed(() => {
-  return `${currentMethod.value} ${transactionRequestPath.value} HTTP/1.1`
-})
-
+const transactionRequestLine = computed(() => `${currentMethod.value} ${transactionRequestPath.value} HTTP/1.1`)
 const transactionResponseBody = computed(() => {
-  try {
-    const parsed = JSON.parse(responseResult.value)
-    return JSON.stringify(parsed, null, 2)
-  } catch {
-    return responseResult.value
-  }
+  try { return JSON.stringify(JSON.parse(request.responseResult.value), null, 2) } catch { return request.responseResult.value }
 })
-
 const copyFullTransaction = async () => {
   let text = `${transactionRequestLine.value}\n`
-  Object.entries(actualRequestHeaders.value).forEach(([key, value]) => {
-    text += `${key}: ${value}\n`
-  })
-  if (bodyContent.value) {
-    text += `\n${bodyContent.value}\n`
-  }
+  Object.entries(actualRequestHeaders.value).forEach(([key, value]) => { text += `${key}: ${value}\n` })
+  if (bodyContent.value) text += `\n${bodyContent.value}\n`
   text += `\n---\n\n`
-  text += `HTTP/1.1 ${responseStatus.value} ${transactionStatusText.value}\n`
-  Object.entries(responseHeaders.value).forEach(([key, value]) => {
-    text += `${key}: ${value}\n`
-  })
-  if (responseResult.value) {
-    text += `\n${transactionResponseBody.value}\n`
-  }
-  try {
-    await navigator.clipboard.writeText(text)
-    message.success('请求完整过程已复制')
-  } catch {
-    message.error('复制失败')
-  }
+  text += `HTTP/1.1 ${request.responseStatus.value} ${transactionStatusText.value}\n`
+  Object.entries(request.responseHeaders.value).forEach(([key, value]) => { text += `${key}: ${value}\n` })
+  if (request.responseResult.value) text += `\n${transactionResponseBody.value}\n`
+  try { await navigator.clipboard.writeText(text); message.success('请求完整过程已复制') } catch { message.error('复制失败') }
 }
 
-// 同步 editableUrl
-let isSyncingFromComputed = false
-watch(computedUrl, (v) => { isSyncingFromComputed = true; editableUrl.value = v }, { immediate: true })
-watch(requestUrl, (v) => { if (!props.api) { isSyncingFromComputed = true; editableUrl.value = v } })
+// ========== URL 双向同步 ==========
+let syncSource: 'params' | 'url' | null = null
 
-const syncUrlToParams = () => {
-  if (!props.api) {
-    // 独立模式：解析 URL 到 requestUrl，并提取 path 占位符
-    const url = editableUrl.value.trim()
-    if (!url) {
-      requestUrl.value = ''
-      queryParameters.value = [{ name: '', value: '', enabled: true }]
-      pathParameters.value = []
-      return
-    }
-    try {
-      const urlObj = new URL(url)
-      const pathname = decodeURIComponent(urlObj.pathname)
-      // 提取 query 参数（URL 中没有则清空）
-      const entries = [...new URLSearchParams(urlObj.search).entries()]
-      if (entries.length > 0) {
-        queryParameters.value = entries.map(([name, value]) => ({ name, value, enabled: true }))
-        queryParameters.value.push({ name: '', value: '', enabled: true })
-        expandedSections.value.query = true
-      } else {
-        queryParameters.value = [{ name: '', value: '', enabled: true }]
-      }
-      // 提取 path 占位符 {paramName}（URL 中没有则清空）
-      const pathMatches = [...pathname.matchAll(/\{([^}]+)\}/g)]
-      if (pathMatches.length > 0) {
-        const newNames = pathMatches.map(m => m[1])
-        const existingMap = new Map(pathParameters.value.map(p => [p.name, p]))
-        pathParameters.value = newNames.map(name => existingMap.get(name) || { name, value: '', enabled: true })
-        expandedSections.value.path = true
-      } else {
-        pathParameters.value = []
-      }
-      // requestUrl 保留原始模板（含占位符）
-      requestUrl.value = urlObj.origin + pathname
-    } catch {
-      requestUrl.value = url
-      // URL 不合法时也同步清除参数（用户可能正在编辑中）
-      queryParameters.value = [{ name: '', value: '', enabled: true }]
-      pathParameters.value = []
-    }
-    return
-  }
+// 参数面板变化 → URL 更新
+watch(computedUrl, (url) => {
+  if (syncSource === 'url') return
+  syncSource = 'params'
+  if (editableUrl.value !== url) editableUrl.value = url
+  syncSource = null
+}, { immediate: true })
+
+const syncParamsFromUrl = () => {
+  const url = editableUrl.value.trim()
+  if (!url) return
+
+  syncSource = 'url'
   try {
-    const urlObj = new URL(editableUrl.value)
-    // 解析 query 参数：更新已有参数并添加 URL 中新出现的参数
+    const urlObj = new URL(url)
     const searchParams = new URLSearchParams(urlObj.search)
-    const existingNames = new Set(queryParameters.value.map(p => p.name).filter(Boolean))
+
+    // URL 是 Query 的事实来源：保持顺序和重复参数，同时尽量保留 OpenAPI 元数据
+    const existingByName = new Map<string, DebuggerParameter[]>()
     queryParameters.value.forEach(param => {
       if (!param.name) return
-      const v = searchParams.get(param.name)
-      if (v !== null) { param.value = v; param.enabled = true }
+      const sameNameParams = existingByName.get(param.name) || []
+      sameNameParams.push(param)
+      existingByName.set(param.name, sameNameParams)
     })
-    // 将 URL 中新增的 query 参数追加到列表
+    const syncedQueryParameters: DebuggerParameter[] = []
     searchParams.forEach((value, name) => {
-      if (!existingNames.has(name)) {
-        // 插入到末尾空行之前
-        const emptyIdx = queryParameters.value.findIndex(p => !p.name && !p.value)
-        const newParam = { name, value, enabled: true }
-        if (emptyIdx >= 0) {
-          queryParameters.value.splice(emptyIdx, 0, newParam)
-        } else {
-          queryParameters.value.push(newParam)
-        }
-      }
+      const existing = existingByName.get(name)?.shift()
+      syncedQueryParameters.push(existing
+        ? { ...existing, value, enabled: true }
+        : { name, value, enabled: true })
     })
-    if (searchParams.size > 0) {
-      expandedSections.value.query = true
+    queryParameters.value = [
+      ...syncedQueryParameters,
+      { name: '', value: '', enabled: true }
+    ]
+
+    if (!props.api) {
+      // 独立模式只能识别 URL 中显式存在的 {path} 占位符
+      const pathname = decodeURIComponent(urlObj.pathname)
+      requestUrl.value = `${urlObj.origin}${pathname}`
+      const pathNames = [...pathname.matchAll(/\{([^}]+)\}/g)].map(match => match[1])
+      const existingPathParams = new Map(pathParameters.value.map(param => [param.name, param]))
+      pathParameters.value = pathNames.map(name => existingPathParams.get(name) || { name, value: '', enabled: true })
+    } else if (props.api.path) {
+      // API 模式按 OpenAPI path 模板的位置更新参数值，参数名保持接口定义
+      const templateSegments = (props.api.path as string).split('/').filter(Boolean)
+      const basePathname = props.baseUrl ? new URL(props.baseUrl).pathname : '/'
+      const baseSegmentCount = basePathname.split('/').filter(Boolean).length
+      const actualSegments = urlObj.pathname.split('/').filter(Boolean).slice(baseSegmentCount)
+      templateSegments.forEach((segment, index) => {
+        const match = segment.match(/^\{([^}]+)\}$/)
+        if (!match) return
+        const param = pathParameters.value.find(item => item.name === match[1])
+        if (!param) return
+        param.value = actualSegments[index] === undefined ? '' : decodeURIComponent(actualSegments[index])
+        param.enabled = true
+      })
     }
-    // 解析 path 参数：将 URL 实际路径与 API 模板路径进行匹配
-    if (pathParameters.value.length > 0 && props.api.path) {
-      const templatePath = props.api.path as string
-      const templateSegments = templatePath.split('/').filter(Boolean)
-      // 计算 baseUrl 的路径前缀段数
-      const basePath = props.baseUrl ? new URL(props.baseUrl).pathname : '/'
-      const basePathSegments = basePath.split('/').filter(Boolean)
-      // 实际 URL 去掉 baseUrl 路径前缀后的段
-      const actualPathSegments = urlObj.pathname.split('/').filter(Boolean).slice(basePathSegments.length)
-      for (let i = 0; i < templateSegments.length; i++) {
-        const seg = templateSegments[i]
-        const match = seg.match(/^\{([^}]+)\}$/)
-        if (match && actualPathSegments[i] !== undefined) {
-          const paramName = match[1]
-          const param = pathParameters.value.find(p => p.name === paramName)
-          if (param) {
-            param.value = decodeURIComponent(actualPathSegments[i])
-            param.enabled = true
-          }
-        }
-      }
-    }
-  } catch { /* 忽略 */ }
+  } catch {
+    // URL 输入过程中可能暂时不合法，保留上一次有效参数状态
+  } finally {
+    syncSource = null
+  }
 }
 
-// 输入 URL 时自动触发解析（防抖 300ms）
-let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null
-watch(editableUrl, () => {
-  if (isSyncingFromComputed) { isSyncingFromComputed = false; return }
-  if (syncDebounceTimer) clearTimeout(syncDebounceTimer)
-  syncDebounceTimer = setTimeout(() => syncUrlToParams(), 300)
-})
+const triggerUrlSync = () => {
+  if (syncSource === 'params') return
+  if (editableUrl.value !== computedUrl.value) syncParamsFromUrl()
+}
 
-// ========== 初始化 ==========
+const handleSendOrConnect = () => {
+  triggerUrlSync()
+  sendOrConnect()
+}
+
+const handleUrlPressEnter = () => { 
+  // 回车时只同步 URL，不发送请求
+  triggerUrlSync()
+}
+const handleUrlBlur = () => { triggerUrlSync() }
+
+// ========== 初始化与重置 ==========
 const initFromApi = () => {
   if (!props.api || !props.baseUrl) return
   const parsed = parseApiToParams(props.api, props.baseUrl, props.bodyExample)
@@ -751,31 +653,15 @@ const initFromApi = () => {
   bodyContent.value = parsed.bodyContent
   activeBodyTab.value = parsed.bodyFormat
   formFields.value = parsed.formFields
-  expandedSections.value = { ...parsed.expandedSections, cookies: false }
 
-  // 重置用户主动激活状态（由 hasXxx computed 接管显示逻辑）
-  activatedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
-
-  // 尝试从缓存恢复
   const savedBody = restoreFromStorage(props.api, currentMethod.value, 'body')
   if (savedBody) bodyContent.value = savedBody as string
 }
 
-// 重置响应状态（需要在 watch 之前定义，避免 TDZ 错误）
-const resetResponseState = () => {
-  responseResult.value = ''; responseStatus.value = 0; responseHeaders.value = {}; responseTiming.value = {}; isBeautified.value = false
-  isImageResponse.value = false; if (imagePreviewUrl.value) URL.revokeObjectURL(imagePreviewUrl.value)
-  imagePreviewUrl.value = ''; imageBlob.value = null; imageInfo.value = ''
-  isBinaryResponse.value = false; binaryBlob.value = null; binaryContentType.value = ''; binarySize.value = ''; binaryFilename.value = ''
-}
-
-const closeAllConnections = (silent = false) => { http.abort(); ws.close(silent); sse.close(silent) }
-
 watch(() => props.api, () => {
-  if (props.api) { initFromApi(); resetResponseState(); closeAllConnections(true) }
+  if (props.api) { initFromApi(); request.resetResponseState(); request.closeAllConnections(true) }
 }, { immediate: true })
 
-// 缓存参数变化
 watch([pathParameters, queryParameters, headerParameters, bodyContent], () => {
   if (!props.api) return
   saveToStorage(props.api, currentMethod.value, 'path', pathParameters.value)
@@ -784,244 +670,168 @@ watch([pathParameters, queryParameters, headerParameters, bodyContent], () => {
   saveToStorage(props.api, currentMethod.value, 'body', bodyContent.value)
 }, { deep: true })
 
-// ========== 请求逻辑 ==========
-const getFullUrl = (): string => {
-  return computedUrl.value.trim() || ''
+// ========== 批量导入 ==========
+const importModalVisible = ref(false)
+const importText = ref('')
+const importTarget = ref<'params' | 'headers' | 'body' | 'cookies'>('params')
+
+const importModalTitle = computed(() => {
+  const map = { params: '导入 Query 参数', headers: '导入请求头', body: '导入请求体', cookies: '导入 Cookie' }
+  return map[importTarget.value]
+})
+const importModalHint = computed(() => {
+  const map = {
+    params: '支持 key=value（每行一个或 & 分隔）或 JSON 对象 {"key": "value"}',
+    headers: '支持 Key: Value（每行一个）或 JSON 对象 {"Key": "Value"}',
+    body: '直接粘贴请求体内容（JSON / XML / Text）',
+    cookies: '支持 key=value（分号或换行分隔）或 JSON 对象 {"key": "value"}'
+  }
+  return map[importTarget.value]
+})
+const importModalPlaceholder = computed(() => {
+  const map = {
+    params: 'page=1&size=20&keyword=test\n\n或 JSON 格式:\n{"page": "1", "size": "20"}',
+    headers: 'Content-Type: application/json\nAuthorization: Bearer token123\n\n或 JSON 格式:\n{"Content-Type": "application/json"}',
+    body: '{\n  "name": "test",\n  "age": 18\n}',
+    cookies: 'session_id=abc123; token=xyz456\n\n或 JSON 格式:\n{"session_id": "abc123", "token": "xyz456"}'
+  }
+  return map[importTarget.value]
+})
+
+const openImport = (target: 'params' | 'headers' | 'body' | 'cookies') => {
+  importTarget.value = target
+  importText.value = ''
+  importModalVisible.value = true
 }
 
-const getContentType = (): string | undefined => {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(currentMethod.value)) return undefined
-  if (activeBodyTab.value === 'form') {
-    const hasFile = formFields.value.some(f => f.enabled && f.type === 'file' && f.fileList && f.fileList.length > 0)
-    return hasFile ? 'multipart/form-data' : 'application/x-www-form-urlencoded'
-  }
-  if (activeBodyTab.value === 'json') return 'application/json'
-  if (activeBodyTab.value === 'xml') return 'application/xml'
-  return 'text/plain'
-}
-
-const buildBody = (): string | FormData | undefined => {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(currentMethod.value)) return undefined
-  if (activeBodyTab.value === 'form') {
-    const hasFile = formFields.value.some(f => f.enabled && f.type === 'file' && f.fileList && f.fileList.length > 0)
-    if (hasFile) {
-      const fd = new FormData()
-      formFields.value.forEach(f => {
-        if (f.enabled && f.name) {
-          if (f.type === 'file' && f.fileList) f.fileList.forEach((file: Record<string, unknown>) => fd.append(f.name, (file.originFileObj || file) as Blob))
-          else if (f.type === 'text') fd.append(f.name, f.value)
-        }
-      })
-      return fd
-    }
-    const params = new URLSearchParams()
-    formFields.value.forEach(f => { if (f.enabled && f.name && f.type === 'text') params.append(f.name, f.value) })
-    return params.toString()
-  }
-  return bodyContent.value || undefined
-}
-
-const handleSendOrConnect = () => {
-  switch (interfaceType.value) {
-    case 'websocket': handleWebSocket(); break
-    case 'sse': handleSSE(); break
-    case 'streamable': handleStreamable(); break
-    default: handleHttp(); break
-  }
-}
-
-const handleAbort = () => {
-  if (interfaceType.value === 'websocket') { ws.close(); responseResult.value += '\n🔌 WebSocket 连接已关闭\n' }
-  else if (interfaceType.value === 'sse') { sse.close(); responseResult.value += '\n🔌 SSE 连接已关闭\n' }
-  else { http.abort(); responseResult.value += '\n⏹ 请求已终止\n' }
-}
-
-const handleHttp = async () => {
-  const url = getFullUrl()
-  if (!url) { message.warning('请输入请求 URL'); return }
-  resetResponseState()
-  const headers: Record<string, string> = {}
-  headerParameters.value.forEach(h => { if (h.enabled && h.name && h.value) headers[h.name] = h.value })
-
-  // 注入 Cookie：合并 Cookie Jar 自动匹配 + 手动编辑的 Cookie
-  const cookieParts: string[] = []
-  if (cookieAutoInject.value) {
-    const jarHeader = cookieJar.buildCookieHeader(url)
-    if (jarHeader) cookieParts.push(jarHeader)
-  }
-  const manualCookies = cookieParameters.value
-    .filter(c => c.enabled && c.name && c.value)
-    .map(c => `${c.name}=${c.value}`)
-  cookieParts.push(...manualCookies)
-  if (cookieParts.length > 0) {
-    headers['Cookie'] = cookieParts.join('; ')
-  }
-
-  const body = buildBody()
-  const contentType = getContentType()
-  if (contentType && !(body instanceof FormData)) headers['Content-Type'] = contentType
+const handleImportConfirm = () => {
+  const text = importText.value.trim()
+  if (!text) { message.warning('请输入要导入的内容'); return }
 
   try {
-    if (body instanceof FormData) {
-      const result = await http.sendRequest(url, currentMethod.value, headers, body, 'http', contentType)
-      responseStatus.value = result.status; responseTiming.value = result.timing
-      const rh: Record<string, string> = {}; result.headers.forEach((v: string, k: string) => { rh[k] = v }); responseHeaders.value = rh
-      // 将 Set-Cookie 存入 Cookie Jar
-      const setCookieVal = rh['set-cookie']
-      if (setCookieVal) {
-        cookieJar.parseAndStore(setCookieVal, url)
-      }
-      await handleDirectResponse(result.response, result.headers.get('content-type') || '')
-      return
+    switch (importTarget.value) {
+      case 'params': parseAndImportParams(text); break
+      case 'headers': parseAndImportHeaders(text); break
+      case 'body': parseAndImportBody(text); break
+      case 'cookies': parseAndImportCookies(text); break
     }
-    // 代理请求
-    const start = Date.now()
-    const proxyBody: Record<string, unknown> = { url, method: currentMethod.value, headers }
-    if (body !== undefined) proxyBody.body = body
-    const resp = await fetch('/proxy/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(proxyBody) })
-    const duration = Date.now() - start
-    if (!resp.ok) { const e = await resp.json(); responseResult.value = `代理请求失败: ${e.error || resp.statusText}`; return }
-    const data = await resp.json()
-    responseStatus.value = data.status
-    responseTiming.value = { startTime: new Date(start), endTime: new Date(), duration }
-    responseHeaders.value = data.headers || {}
-
-    // 将 Set-Cookie 存入 Cookie Jar
-    const setCookie = data.headers?.['set-cookie']
-    if (setCookie) {
-      cookieJar.parseAndStore(setCookie, url)
-    }
-
-    const ct = (Object.entries(data.headers || {}).find(([k]) => k.toLowerCase() === 'content-type')?.[1] as string) || ''
-    if (ct.startsWith('image/')) {
-      // 图片类型：构建 Blob 用于预览
-      const mimeType = ct.split(';')[0].trim()
-      let blob: Blob
-      if (data.bodyEncoding === 'base64') {
-        // 二进制图片：从 base64 解码
-        const binary = atob(data.body)
-        const bytes = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-        blob = new Blob([bytes], { type: mimeType })
-        responseResult.value = `[图片数据 - ${mimeType}]`
-      } else {
-        // SVG 等文本格式图片
-        blob = new Blob([data.body], { type: mimeType })
-        responseResult.value = data.body
-      }
-      imageBlob.value = blob
-      imagePreviewUrl.value = URL.createObjectURL(blob)
-      imageInfo.value = `类型: ${mimeType} | 大小: ${(blob.size / 1024).toFixed(2)} KB`
-      isImageResponse.value = true
-    } else if (ct.includes('application/json')) {
-      try { responseResult.value = JSON.stringify(JSON.parse(data.body), null, 2); isBeautified.value = true } catch { responseResult.value = data.body }
-    } else { responseResult.value = data.body || '(空响应)' }
+    importModalVisible.value = false
+    message.success('导入成功')
   } catch (e: unknown) {
-    responseResult.value = `请求失败: ${e instanceof Error ? e.message : String(e)}`
+    message.error(e instanceof Error ? e.message : '解析失败，请检查格式')
   }
 }
 
-const handleWebSocket = () => {
-  if (wsConnected.value) { ws.close(); responseResult.value += '\n🔌 WebSocket 连接已关闭\n'; return }
-  const url = getFullUrl().replace(/^http/, 'ws')
-  if (!url) { message.warning('请输入 URL'); return }
-  resetResponseState()
-  responseResult.value = '🔄 正在连接 WebSocket...\n'
-  ws.connect(url, {
-    onOpen: () => { responseResult.value += '✅ WebSocket 连接成功\n💡 现在可以发送消息了\n\n'; responseStatus.value = 101 },
-    onMessage: (e: MessageEvent) => { responseResult.value += `[${new Date().toLocaleTimeString()}] 📨 收到:\n${e.data}\n\n` },
-    onError: () => { responseResult.value += '❌ WebSocket 连接错误\n' },
-    onClose: () => { responseResult.value += '🔌 连接已关闭\n' }
-  })
-}
-
-const sendWebSocketMessage = () => {
-  if (!wsConnected.value) { message.error('WebSocket 未连接'); return }
-  try { JSON.parse(wsMessage.value) } catch { message.error('请输入有效的 JSON'); return }
-  if (ws.send(wsMessage.value)) { responseResult.value += `[${new Date().toLocaleTimeString()}] 📤 发送:\n${wsMessage.value}\n\n` }
-}
-
-const handleSSE = () => {
-  if (sseConnected.value) { sse.close(); responseResult.value += '\n🔌 SSE 连接已关闭\n'; return }
-  const url = getFullUrl()
-  if (!url) { message.warning('请输入 URL'); return }
-  resetResponseState()
-  responseResult.value = '📡 正在连接 SSE...\n'
-  sse.connect(url, {
-    onMessage: (e: MessageEvent) => { responseResult.value += `[${new Date().toLocaleTimeString()}] 📨 收到:\n${e.data}\n\n` },
-    onError: () => { responseResult.value += '❌ SSE 连接错误\n'; sse.close(true) }
-  })
-  setTimeout(() => { if (sseConnected.value) { responseResult.value += '✅ SSE 连接成功，正在接收...\n\n'; responseStatus.value = 200 } }, 100)
-}
-
-const handleStreamable = async () => {
-  const url = getFullUrl()
-  if (!url) { message.warning('请输入 URL'); return }
-  resetResponseState()
-  responseResult.value = '📡 正在连接流式传输...\n'
-  http.testing.value = true
-  http.abortController.value = new AbortController()
-  try {
-    const resp = await fetch(url, { signal: http.abortController.value.signal })
-    responseStatus.value = resp.status
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    responseResult.value += '✅ 连接成功，正在接收...\n\n'
-    const reader = resp.body?.getReader()
-    const decoder = new TextDecoder()
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) { responseResult.value += '\n✅ 流式传输完成\n'; break }
-        responseResult.value += `[${new Date().toLocaleTimeString()}] 📦 ${decoder.decode(value, { stream: true })}\n\n`
-      }
-      reader.releaseLock()
+const parseAndImportParams = (text: string) => {
+  const trimmed = text.trim()
+  // 尝试 JSON 对象
+  if (trimmed.startsWith('{')) {
+    const obj = JSON.parse(trimmed)
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw new Error('JSON 格式应为对象 {"key": "value"}')
+    const pairs = Object.entries(obj).map(([name, value]) => ({ name, value: String(value), enabled: true }))
+    if (pairs.length === 0) throw new Error('JSON 对象为空')
+    const existing = queryParameters.value.filter(p => p.name)
+    queryParameters.value = [...existing, ...pairs, { name: '', value: '', enabled: true }]
+    return
+  }
+  // key=value 格式（每行一个或 & 分隔）
+  const pairs: { name: string; value: string }[] = []
+  const lines = trimmed.split(/\n/).map(l => l.trim()).filter(Boolean)
+  for (const line of lines) {
+    const parts = line.split('&')
+    for (const part of parts) {
+      const p = part.trim()
+      if (!p) continue
+      const eqIdx = p.indexOf('=')
+      if (eqIdx <= 0) throw new Error(`无法解析: "${p}"，格式应为 key=value`)
+      pairs.push({ name: decodeURIComponent(p.slice(0, eqIdx).trim()), value: decodeURIComponent(p.slice(eqIdx + 1).trim()) })
     }
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes('abort') || msg.includes('Abort')) responseResult.value += '\n⏹ 已停止\n'
-    else responseResult.value += `❌ 错误: ${msg}\n`
-  } finally { http.testing.value = false; http.abortController.value = null }
+  }
+  if (pairs.length === 0) throw new Error('未解析到有效参数')
+  const existing = queryParameters.value.filter(p => p.name)
+  queryParameters.value = [
+    ...existing.map(p => ({ ...p })),
+    ...pairs.map(p => ({ name: p.name, value: p.value, enabled: true })),
+    { name: '', value: '', enabled: true }
+  ]
 }
 
-const handleDirectResponse = async (response: Response, contentType: string) => {
-  if (contentType.includes('image/')) {
-    const blob = await response.blob(); imageBlob.value = blob; imagePreviewUrl.value = URL.createObjectURL(blob)
-    imageInfo.value = `类型: ${contentType} | 大小: ${(blob.size / 1024).toFixed(2)} KB`
-    responseResult.value = contentType.includes('svg') ? await blob.text() : `[图片数据 - ${contentType}]`; isImageResponse.value = true
-  } else if (contentType.includes('application/json')) {
-    responseResult.value = JSON.stringify(await response.json(), null, 2); isBeautified.value = true
-  } else if (['application/octet-stream','application/pdf','application/zip','audio/','video/'].some(t => contentType.includes(t))) {
-    const blob = await response.blob(); binaryBlob.value = blob; binaryContentType.value = contentType
-    binarySize.value = blob.size < 1024*1024 ? `${(blob.size/1024).toFixed(2)} KB` : `${(blob.size/1024/1024).toFixed(2)} MB`
-    binaryFilename.value = extractFilename(response) || 'download'; isBinaryResponse.value = true
-    responseResult.value = `[二进制文件 - ${contentType}, ${binarySize.value}]`
-  } else { responseResult.value = await response.text() || '(空响应)' }
+const parseAndImportHeaders = (text: string) => {
+  const trimmed = text.trim()
+  // 尝试 JSON 对象
+  if (trimmed.startsWith('{')) {
+    const obj = JSON.parse(trimmed)
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw new Error('JSON 格式应为对象 {"Key": "Value"}')
+    const pairs = Object.entries(obj).map(([name, value]) => ({ name, value: String(value), enabled: true }))
+    if (pairs.length === 0) throw new Error('JSON 对象为空')
+    const existing = headerParameters.value.filter(h => h.name)
+    headerParameters.value = [...existing, ...pairs, { name: '', value: '', enabled: true }]
+    return
+  }
+  // Key: Value 格式
+  const pairs: { name: string; value: string }[] = []
+  const lines = trimmed.split(/\n/).map(l => l.trim()).filter(Boolean)
+  for (const line of lines) {
+    const colonIdx = line.indexOf(':')
+    if (colonIdx <= 0) throw new Error(`无法解析: "${line}"，格式应为 Key: Value`)
+    pairs.push({ name: line.slice(0, colonIdx).trim(), value: line.slice(colonIdx + 1).trim() })
+  }
+  if (pairs.length === 0) throw new Error('未解析到有效请求头')
+  const existing = headerParameters.value.filter(h => h.name)
+  headerParameters.value = [
+    ...existing.map(h => ({ ...h })),
+    ...pairs.map(h => ({ name: h.name, value: h.value, enabled: true })),
+    { name: '', value: '', enabled: true }
+  ]
 }
 
-const extractFilename = (r: Response): string => {
-  const d = r.headers.get('content-disposition')
-  if (d) { const m = d.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/); if (m) return m[1].replace(/['"]/g, '') }
-  return ''
-}
-
-// ========== 状态管理 ==========
-
-const toggleSection = (s: keyof typeof expandedSections.value) => { expandedSections.value[s] = !expandedSections.value[s] }
-
-// 点击压缩标签按钮：展开对应区块并添加一行空参数（首次展开）
-const expandCollapsedSection = (key: 'query' | 'path' | 'headers' | 'cookies' | 'body') => {
-  activatedSections.value[key] = true
-  expandedSections.value[key] = true
-  if (key === 'query' && !queryParameters.value.some(p => p.name)) {
-    queryParameters.value = [{ name: '', value: '', enabled: true }]
-  } else if (key === 'path' && pathParameters.value.length === 0) {
-    pathParameters.value.push({ name: '', value: '', enabled: true })
-  } else if (key === 'headers' && !headerParameters.value.some(h => h.name)) {
-    headerParameters.value = [{ name: '', value: '', enabled: true }]
-  } else if (key === 'cookies' && !cookieParameters.value.some(c => c.name)) {
-    cookieParameters.value = [{ name: '', value: '', enabled: true }]
+const parseAndImportBody = (text: string) => {
+  // 自动检测格式
+  const trimmed = text.trim()
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    // 尝试解析 JSON 验证格式
+    try { JSON.parse(trimmed) } catch { throw new Error('JSON 格式无效，请检查语法') }
+    bodyContent.value = trimmed
+    activeBodyTab.value = 'json'
+  } else if (trimmed.startsWith('<')) {
+    bodyContent.value = trimmed
+    activeBodyTab.value = 'xml'
+  } else {
+    bodyContent.value = trimmed
+    activeBodyTab.value = 'text'
   }
 }
+
+const parseAndImportCookies = (text: string) => {
+  const trimmed = text.trim()
+  // 尝试 JSON 对象
+  if (trimmed.startsWith('{')) {
+    const obj = JSON.parse(trimmed)
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw new Error('JSON 格式应为对象 {"key": "value"}')
+    const pairs = Object.entries(obj).map(([name, value]) => ({ name, value: String(value), enabled: true }))
+    if (pairs.length === 0) throw new Error('JSON 对象为空')
+    const existing = cookieParameters.value.filter(c => c.name)
+    cookieParameters.value = [...existing, ...pairs, { name: '', value: '', enabled: true }]
+    return
+  }
+  // key=value 格式（分号或换行分隔）
+  const pairs: { name: string; value: string }[] = []
+  const parts = trimmed.split(/[;\n]+/).map(s => s.trim()).filter(Boolean)
+  for (const part of parts) {
+    const eqIdx = part.indexOf('=')
+    if (eqIdx <= 0) throw new Error(`无法解析: "${part}"，格式应为 key=value`)
+    pairs.push({ name: part.slice(0, eqIdx).trim(), value: part.slice(eqIdx + 1).trim() })
+  }
+  if (pairs.length === 0) throw new Error('未解析到有效 Cookie')
+  const existing = cookieParameters.value.filter(c => c.name)
+  cookieParameters.value = [
+    ...existing.map(c => ({ ...c })),
+    ...pairs.map(c => ({ name: c.name, value: c.value, enabled: true })),
+    { name: '', value: '', enabled: true }
+  ]
+}
+
+// ========== 操作方法 ==========
 const addQueryParam = () => { queryParameters.value.push({ name: '', value: '', enabled: true }) }
 const removeQueryParam = (i: number) => { queryParameters.value.splice(i, 1) }
 const addPathParam = () => { pathParameters.value.push({ name: '', value: '', enabled: true }) }
@@ -1030,172 +840,60 @@ const addHeaderParam = () => { headerParameters.value.push({ name: '', value: ''
 const removeHeaderParam = (i: number) => { headerParameters.value.splice(i, 1) }
 const addCookieParam = () => { cookieParameters.value.push({ name: '', value: '', enabled: true }) }
 const removeCookieParam = (i: number) => { cookieParameters.value.splice(i, 1) }
+const addFormField = () => { formFields.value.push({ name: '', value: '', type: 'text', enabled: true, fromSchema: false }) }
+const removeFormField = (i: number) => { formFields.value.splice(i, 1) }
+const handleFileChange = ({ info, index }: { info: UploadChangeParam; index: number }) => {
+  if (formFields.value[index]) formFields.value[index].fileList = info.fileList
+}
 
-// 响应 Cookie 一键回填到请求 Cookie 区块
 const handleUseCookie = (cookie: { name: string; value: string }) => {
-  // 检查是否已存在同名 Cookie
   const existIdx = cookieParameters.value.findIndex(c => c.name === cookie.name)
   if (existIdx >= 0) {
     cookieParameters.value[existIdx].value = cookie.value
     cookieParameters.value[existIdx].enabled = true
   } else {
-    // 如果第一行是空的，直接填入
     const firstEmpty = cookieParameters.value.findIndex(c => !c.name && !c.value)
-    if (firstEmpty >= 0) {
-      cookieParameters.value[firstEmpty] = { name: cookie.name, value: cookie.value, enabled: true }
-    } else {
-      cookieParameters.value.push({ name: cookie.name, value: cookie.value, enabled: true })
-    }
+    if (firstEmpty >= 0) cookieParameters.value[firstEmpty] = { name: cookie.name, value: cookie.value, enabled: true }
+    else cookieParameters.value.push({ name: cookie.name, value: cookie.value, enabled: true })
   }
-  // 展开 Cookie 区块
-  activatedSections.value.cookies = true
-  expandedSections.value.cookies = true
+  activeTab.value = 'cookies'
   message.success(`Cookie "${cookie.name}" 已添加到请求`)
 }
-const addFormField = () => { formFields.value.push({ name: '', value: '', type: 'text', enabled: true, fromSchema: false }) }
-const removeFormField = (i: number) => { formFields.value.splice(i, 1) }
-const handleFileChange = ({ info, index }: { info: UploadChangeParam; index: number }) => { if (formFields.value[index]) formFields.value[index].fileList = info.fileList }
-
-const copyResponse = async () => { try { await navigator.clipboard.writeText(displayResult.value); message.success('已复制') } catch { message.error('复制失败') } }
-const beautifyResponse = () => { isBeautified.value = !isBeautified.value }
-const clearResult = () => { resetResponseState() }
-const downloadImage = () => { if (!imageBlob.value) return; const u = URL.createObjectURL(imageBlob.value); const a = document.createElement('a'); a.href = u; a.download = 'image'; a.click(); URL.revokeObjectURL(u) }
-const downloadBinary = () => { if (!binaryBlob.value) return; const u = URL.createObjectURL(binaryBlob.value); const a = document.createElement('a'); a.href = u; a.download = binaryFilename.value || 'download'; a.click(); URL.revokeObjectURL(u) }
 
 const resetAll = () => {
   if (props.api) { clearStorage(props.api, currentMethod.value); initFromApi() } else {
-    currentMethod.value = 'GET'; requestUrl.value = ''; queryParameters.value = [{ name: '', value: '', enabled: true }]
-    headerParameters.value = [{ name: '', value: '', enabled: true }]; bodyContent.value = ''; formFields.value = []; pathParameters.value = []
+    currentMethod.value = 'GET'
+    requestUrl.value = ''
+    queryParameters.value = [{ name: '', value: '', enabled: true }]
+    headerParameters.value = [{ name: '', value: '', enabled: true }]
     cookieParameters.value = [{ name: '', value: '', enabled: true }]
-    activeBodyTab.value = 'json'; expandedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
-    activatedSections.value = { query: false, path: false, headers: false, cookies: false, body: false }
+    pathParameters.value = []
+    formFields.value = []
+    bodyContent.value = ''
+    activeBodyTab.value = 'json'
   }
-  resetResponseState()
+  activeTab.value = 'params'
+  request.resetResponseState()
 }
 
-// ========== cURL 导入/导出 ==========
-const curlImportVisible = ref(false)
-const curlImportText = ref('')
-
-const openCurlImport = () => {
-  curlImportText.value = ''
-  curlImportVisible.value = true
-}
-
-const handleCurlImport = () => {
-  const text = curlImportText.value.trim()
-  if (!text) { message.warning('请粘贴 cURL 命令'); return }
-
-  try {
-    const parsed = parseCurl(text)
-
-    // 填充方法
-    currentMethod.value = parsed.method
-
-    // 填充 URL
-    if (props.api) {
-      editableUrl.value = parsed.url
-    } else {
-      requestUrl.value = parsed.url
-      editableUrl.value = parsed.url
-    }
-
-    // 填充 Query 参数
-    if (parsed.queryParams.length > 0) {
-      queryParameters.value = parsed.queryParams.map(p => ({ name: p.name, value: p.value, enabled: true }))
-      expandedSections.value.query = true
-    }
-
-    // 填充请求头
-    if (parsed.headers.length > 0) {
-      headerParameters.value = parsed.headers.map(h => ({ name: h.name, value: h.value, enabled: true }))
-      expandedSections.value.headers = true
-    }
-
-    // 填充请求体
-    if (parsed.body) {
-      bodyContent.value = parsed.body
-      activeBodyTab.value = parsed.bodyFormat
-      expandedSections.value.body = true
-    }
-
-    curlImportVisible.value = false
-    message.success('cURL 导入成功')
-  } catch {
-    message.error('cURL 解析失败，请检查格式')
-  }
-}
-
-const copyAsCurl = async () => {
-  const url = getFullUrl()
-  if (!url) { message.warning('请先填写请求 URL'); return }
-
-  let cmd = `curl -X ${currentMethod.value} '${url}'`
-
-  // 添加自定义请求头
-  const enabledHeaders = headerParameters.value.filter(h => h.enabled && h.name && h.value)
-  enabledHeaders.forEach(h => {
-    cmd += ` \\\n  -H '${h.name}: ${h.value}'`
-  })
-
-  // 添加 Cookie
-  const cookieParts: string[] = []
-  if (cookieAutoInject.value) {
-    const jarHeader = cookieJar.buildCookieHeader(url)
-    if (jarHeader) cookieParts.push(jarHeader)
-  }
-  const manualCookies = cookieParameters.value
-    .filter(c => c.enabled && c.name && c.value)
-    .map(c => `${c.name}=${c.value}`)
-  cookieParts.push(...manualCookies)
-  if (cookieParts.length > 0) {
-    cmd += ` \\\n  -b '${cookieParts.join('; ')}'`
-  }
-
-  // 添加请求体
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(currentMethod.value)) {
-    const ct = getContentType()
-    if (ct) {
-      cmd += ` \\\n  -H 'Content-Type: ${ct}'`
-    }
-
-    if (activeBodyTab.value === 'form') {
-      const enabledFields = formFields.value.filter(f => f.enabled && f.name && f.type === 'text')
-      if (enabledFields.length > 0) {
-        const formData = enabledFields.map(f => `${encodeURIComponent(f.name)}=${encodeURIComponent(f.value)}`).join('&')
-        cmd += ` \\\n  -d '${formData}'`
-      }
-    } else if (bodyContent.value) {
-      // 压缩 JSON 为单行
-      let bodyStr = bodyContent.value
-      if (activeBodyTab.value === 'json') {
-        try { bodyStr = JSON.stringify(JSON.parse(bodyStr)) } catch { /* 保持原样 */ }
-      }
-      cmd += ` \\\n  -d '${bodyStr}'`
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(cmd)
-    message.success('cURL 已复制到剪贴板')
-  } catch {
-    message.error('复制失败')
-  }
-}
-
-onUnmounted(() => { closeAllConnections(true) })
+onUnmounted(() => {
+  request.closeAllConnections(true)
+})
 </script>
-
 
 <style scoped>
 .standalone-debugger { display: flex; flex-direction: column; height: 100vh; background: #fff; overflow: hidden; }
 .standalone-debugger.is-embedded { height: auto; min-height: 400px; overflow: visible; }
+
+/* 工具栏 */
 .debugger-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--color-border-light, #f0f0f0); flex-shrink: 0; }
 .toolbar-left { display: flex; align-items: center; gap: 12px; }
 .toolbar-divider { width: 1px; height: 20px; background: var(--color-border, #e5e7eb); }
 .toolbar-title { font-size: 14px; font-weight: 500; color: var(--color-text-secondary, #6b7280); }
 .toolbar-right { display: flex; align-items: center; gap: 8px; }
 .toolbar-btn { font-size: 12px; color: var(--color-text-secondary, #6b7280); }
+
+/* 按钮通用 */
 .action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; font-weight: 500; box-shadow: none; transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease; }
 .action-btn :deep(.anticon), .send-btn :deep(.anticon) { font-size: 13px; }
 .secondary-action-btn { color: var(--color-text-secondary, #4b5563); background: #fff; border-color: var(--color-border, #d1d5db); }
@@ -1206,80 +904,88 @@ onUnmounted(() => { closeAllConnections(true) })
 .back-link { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; transition: all 0.15s ease; }
 .back-link:hover { background: rgba(16, 185, 129, 0.06); color: #10b981; }
 
+/* 嵌入模式头部 */
 .embedded-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .header-label { font-size: 13px; font-weight: 600; color: var(--color-text); }
 .header-actions { display: flex; gap: 6px; }
 
-.url-section { padding: 12px 20px; border-bottom: 1px solid var(--color-border-light, #f0f0f0); flex-shrink: 0; }
-.url-section-embedded { padding: 0; border-bottom: none; margin-bottom: 8px; }
+/* URL 栏 */
+.url-section { padding: 12px 20px; flex-shrink: 0; }
+.url-section-embedded { padding: 0; margin-bottom: 0; }
 .url-bar { display: flex; align-items: center; gap: 8px; }
 .method-select { flex-shrink: 0; width: 110px; }
 .url-input { flex: 1; }
 :deep(.url-input .ant-input) { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
 .send-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-width: 104px; height: 28px; padding-inline: 16px; border-radius: 6px; font-weight: 600; box-shadow: 0 1px 2px rgba(5, 150, 105, 0.18); }
 
-@media (max-width: 640px) {
-  .embedded-header { flex-direction: column; align-items: stretch; gap: 8px; }
-  .header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .header-actions .action-btn { width: 100%; }
-  .url-bar { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
-  .method-select { width: 96px; }
-  .send-btn { grid-column: 1 / -1; width: 100%; }
+/* Tab 导航栏 */
+.tab-bar { display: flex; gap: 0; padding: 0 20px; border-bottom: 1px solid var(--color-border-light, #f0f0f0); flex-shrink: 0; }
+.tab-bar-embedded { padding: 0; margin-top: 10px; }
+.tab-item {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 8px 14px; border: none; background: none;
+  font-size: 13px; font-weight: 500; color: #6b7280;
+  cursor: pointer; transition: color 0.15s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab-item:hover { color: #374151; }
+.tab-item.active { color: var(--color-primary, #10b981); border-bottom-color: var(--color-primary, #10b981); }
+.tab-badge {
+  font-size: 10px; min-width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 4px; border-radius: 8px;
+  background: rgba(16, 185, 129, 0.1); color: #10b981;
+  font-weight: 600;
 }
 
+/* 主体区域 */
 .debugger-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-.debugger-body-embedded { flex-direction: column; overflow: visible; }
+.debugger-body-embedded { overflow: visible; }
 .request-panel { width: 100%; border-bottom: 1px solid var(--color-border-light, #f0f0f0); overflow-y: auto; }
-.request-panel-embedded { overflow-y: visible; }
+.request-panel-embedded { overflow-y: visible; border-bottom: none; }
 .response-panel { width: 100%; flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
 .response-panel-embedded { border-top: 1px solid var(--color-border-light, #f0f0f0); padding-top: 12px; }
 
-.request-sections { padding: 8px 0; }
-.request-section { border-bottom: 1px solid var(--color-border-light, #f0f0f0); }
-.request-section:last-child { border-bottom: none; }
-.section-header { display: flex; align-items: center; padding: 10px 20px; cursor: pointer; user-select: none; transition: background 0.15s ease; }
-.request-panel-embedded .section-header { padding: 10px 0; }
-.section-header:hover { background: var(--color-bg-secondary, #f9fafb); }
-.collapse-icon { font-size: 10px; color: #9ca3af; margin-right: 8px; transition: transform 0.2s ease; display: inline-block; }
-.collapse-icon.expanded { transform: rotate(90deg); }
-.section-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
-.section-badge { font-size: 11px; padding: 1px 6px; margin-left: 8px; border-radius: 10px; background: rgba(16, 185, 129, 0.08); color: #10b981; }
-.section-header-actions { margin-left: 12px; }
-.body-format-select { width: 80px; }
-.section-content { padding: 8px 20px 16px; }
-.request-panel-embedded .section-content { padding: 0 0 12px; }
+/* Tab 内容 */
+.tab-content { padding: 12px 20px 16px; }
+.request-panel-embedded .tab-content { padding: 12px 0 16px; }
+
+/* 参数分组 */
+.param-group { margin-bottom: 16px; }
+.param-group:last-child { margin-bottom: 0; }
+.param-group-title { font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* Body 格式选择 */
+.body-format-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.body-format-select { width: 90px; }
+.body-format-spacer { flex: 1; }
+
+/* Tab 内容顶部工具栏 */
+.tab-content-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
 
 /* 隐藏 RequestBody 内部的 tab 栏 */
-.section-content :deep(.body-sub-tabs .ant-tabs-nav) { display: none; }
+.tab-content :deep(.body-sub-tabs .ant-tabs-nav) { display: none; }
 
-.ws-message-section { padding: 8px 20px 16px; }
+.ws-message-section { padding: 12px 20px 16px; }
 
+/* 空响应 */
 .empty-response { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px; padding: 40px; }
 .empty-icon { margin-bottom: 16px; opacity: 0.6; }
 .empty-text { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
 
+/* cURL */
 .curl-import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
-
-/* 压缩标签区 */
-.collapsed-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.collapsed-tag-btn {
-  display: inline-flex; align-items: center;
-  padding: 2px 10px; border-radius: 4px;
-  font-size: 12px; color: #6b7280;
-  background: #f9fafb;
-  border: 1px dashed #d1d5db;
-  cursor: pointer; transition: all 0.15s ease;
-  line-height: 1.6;
-}
-.collapsed-tag-btn:hover {
-  color: #10b981; border-color: #10b981;
-  background: rgba(16, 185, 129, 0.06);
-}.curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+.curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
 
 /* 请求完整过程 */
 .full-transaction-panel { border-top: 1px solid var(--color-border-light, #f0f0f0); padding: 0 20px; }
 .full-transaction-embedded { padding: 0; margin-top: 12px; }
 .transaction-header { display: flex; align-items: center; gap: 8px; padding: 10px 0; cursor: pointer; user-select: none; }
+.collapse-icon { font-size: 10px; color: #9ca3af; margin-right: 4px; transition: transform 0.2s ease; display: inline-block; }
+.collapse-icon.expanded { transform: rotate(90deg); }
 .transaction-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
 .transaction-meta { font-size: 11px; color: var(--color-text-muted, #6b7280); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .transaction-actions { margin-left: 12px; display: flex; align-items: center; gap: 4px; }
@@ -1292,4 +998,14 @@ onUnmounted(() => { closeAllConnections(true) })
 .transaction-raw .raw-header-name { color: #8b5cf6; }
 .transaction-raw .raw-header-value { color: #333; }
 .transaction-raw .raw-body { color: #059669; }
+
+@media (max-width: 640px) {
+  .embedded-header { flex-direction: column; align-items: stretch; gap: 8px; }
+  .header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .header-actions .action-btn { width: 100%; }
+  .url-bar { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+  .method-select { width: 96px; }
+  .send-btn { grid-column: 1 / -1; width: 100%; }
+  .tab-item { padding: 8px 10px; font-size: 12px; }
+}
 </style>
