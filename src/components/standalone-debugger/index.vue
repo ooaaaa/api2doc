@@ -8,13 +8,16 @@
         <span class="toolbar-title">API 调试器</span>
       </div>
       <div class="toolbar-right">
-        <a-button size="small" @click="openCurlImport" class="action-btn">
+        <a-button size="small" @click="openCurlImport" class="action-btn secondary-action-btn">
+          <template #icon><ImportOutlined /></template>
           导入 cURL
         </a-button>
-        <a-button size="small" @click="copyAsCurl" class="action-btn">
+        <a-button size="small" @click="copyAsCurl" class="action-btn secondary-action-btn">
+          <template #icon><CopyOutlined /></template>
           复制 cURL
         </a-button>
-        <a-button size="small" type="primary" @click="resetAll" class="action-btn">
+        <a-button size="small" type="text" danger @click="resetAll" class="action-btn reset-action-btn">
+          <template #icon><ReloadOutlined /></template>
           重置
         </a-button>
         <a class="toolbar-btn back-link" :href="basePath" title="返回文档页">
@@ -27,16 +30,20 @@
     <div v-if="embedded" class="embedded-header">
       <span class="header-label">请求配置</span>
       <div class="header-actions">
-        <a-button size="small" @click="openCurlImport" class="action-btn">
+        <a-button size="small" @click="openCurlImport" class="action-btn secondary-action-btn">
+          <template #icon><ImportOutlined /></template>
           导入 cURL
         </a-button>
-        <a-button size="small" @click="copyAsCurl" class="action-btn">
+        <a-button size="small" @click="copyAsCurl" class="action-btn secondary-action-btn">
+          <template #icon><CopyOutlined /></template>
           复制 cURL
         </a-button>
-        <a-button size="small" type="primary" @click="resetAll" class="action-btn">
+        <a-button size="small" type="text" danger @click="resetAll" class="action-btn reset-action-btn">
+          <template #icon><ReloadOutlined /></template>
           重置
         </a-button>
-        <a-button size="small" type="primary" @click="$emit('toggleCode')" class="action-btn">
+        <a-button size="small" @click="$emit('toggleCode')" class="action-btn code-action-btn">
+          <template #icon><CodeOutlined /></template>
           代码
         </a-button>
       </div>
@@ -56,21 +63,17 @@
           :placeholder="embedded ? '请求 URL' : '输入请求 URL，例如 https://api.example.com/users'"
           @pressEnter="handleSendOrConnect"
         />
-        <a-tooltip title="解析 URL 到参数面板">
-          <a-button
-            size="small"
-            @click="syncUrlToParams"
-            class="parse-url-btn"
-          >
-            解析
-          </a-button>
-        </a-tooltip>
+
         <a-button
           :type="isActive ? 'default' : 'primary'"
           :danger="isActive"
           @click="isActive ? handleAbort() : handleSendOrConnect()"
           class="send-btn"
         >
+          <template #icon>
+            <StopOutlined v-if="isActive" />
+            <SendOutlined v-else />
+          </template>
           {{ sendButtonText }}
         </a-button>
       </div>
@@ -89,7 +92,7 @@
       <!-- 左侧：请求配置（折叠面板） -->
       <div class="request-panel" :class="{ 'request-panel-embedded': embedded }">
         <div class="request-sections">
-          <!-- Query 参数区块 -->
+          <!-- Query 参数区块（始终显示） -->
           <div class="request-section">
             <div class="section-header" @click="toggleSection('query')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.query }">&#9654;</span>
@@ -107,8 +110,8 @@
             </div>
           </div>
 
-          <!-- Path 参数区块 -->
-          <div class="request-section">
+          <!-- Path 参数区块（有内容或已展开时显示） -->
+          <div v-if="hasPathParams || expandedSections.path" class="request-section">
             <div class="section-header" @click="toggleSection('path')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.path }">&#9654;</span>
               <span class="section-title">Path 参数</span>
@@ -125,8 +128,8 @@
             </div>
           </div>
 
-          <!-- 请求头区块 -->
-          <div class="request-section">
+          <!-- 请求头区块（有内容或已展开时显示） -->
+          <div v-if="hasHeaderParams || expandedSections.headers" class="request-section">
             <div class="section-header" @click="toggleSection('headers')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.headers }">&#9654;</span>
               <span class="section-title">请求头</span>
@@ -147,8 +150,8 @@
             </div>
           </div>
 
-          <!-- Cookie 区块 -->
-          <div class="request-section">
+          <!-- Cookie 区块（有内容或已展开时显示） -->
+          <div v-if="hasCookieParams || expandedSections.cookies" class="request-section">
             <div class="section-header" @click="toggleSection('cookies')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.cookies }">&#9654;</span>
               <span class="section-title">Cookie</span>
@@ -165,8 +168,8 @@
             </div>
           </div>
 
-          <!-- 请求体区块（非特殊接口时显示） -->
-          <div v-if="!isSpecialInterface" class="request-section">
+          <!-- 请求体区块（有内容或已展开时显示，特殊接口隐藏） -->
+          <div v-if="!isSpecialInterface && (hasBodyContent || expandedSections.body)" class="request-section">
             <div class="section-header" @click="toggleSection('body')">
               <span class="collapse-icon" :class="{ expanded: expandedSections.body }">&#9654;</span>
               <span class="section-title">请求体</span>
@@ -207,6 +210,18 @@
             <a-button type="primary" @click="sendWebSocketMessage" style="margin-top: 8px">
               发送消息
             </a-button>
+          </div>
+
+          <!-- 压缩标签区：没有内容的区块以标签按钮呈现 -->
+          <div v-if="collapsedSectionTags.length > 0" class="collapsed-tags">
+            <button
+              v-for="tag in collapsedSectionTags"
+              :key="tag.key"
+              class="collapsed-tag-btn"
+              @click="expandCollapsedSection(tag.key)"
+            >
+              {{ tag.label }}
+            </button>
           </div>
         </div>
       </div>
@@ -353,6 +368,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
+import { CodeOutlined, CopyOutlined, ImportOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons-vue'
 import RequestParams from '../api-debugger/RequestParams.vue'
 import RequestHeaders from '../api-debugger/RequestHeaders.vue'
 import RequestCookies from '../api-debugger/RequestCookies.vue'
@@ -454,6 +470,25 @@ const enabledCookieCount = computed(() => {
   const manual = cookieParameters.value.filter(c => c.enabled && c.name && c.value).length
   const jar = cookieAutoInject.value ? cookieJar.getMatchingCookies(computedUrl.value).length : 0
   return manual + jar
+})
+
+// 各区块是否「有内容」（决定显示折叠面板还是压缩为标签按钮）
+const hasPathParams = computed(() => pathParameters.value.some(p => p.name))
+const hasHeaderParams = computed(() => headerParameters.value.some(h => h.name))
+const hasCookieParams = computed(() => cookieParameters.value.some(c => c.name) || (cookieAutoInject.value && cookieJar.getMatchingCookies(computedUrl.value).length > 0))
+const hasBodyContent = computed(() => {
+  if (activeBodyTab.value === 'form') return formFields.value.some(f => f.name)
+  return !!bodyContent.value
+})
+
+// 压缩标签按钮列表：没有内容且不是特殊接口的区块
+const collapsedSectionTags = computed(() => {
+  const tags: { key: 'path' | 'headers' | 'cookies' | 'body'; label: string }[] = []
+  if (!hasPathParams.value && !expandedSections.value.path) tags.push({ key: 'path', label: '+ Path 参数' })
+  if (!hasHeaderParams.value && !expandedSections.value.headers) tags.push({ key: 'headers', label: '+ 请求头' })
+  if (!hasCookieParams.value && !expandedSections.value.cookies) tags.push({ key: 'cookies', label: '+ Cookie' })
+  if (!isSpecialInterface.value && !hasBodyContent.value && !expandedSections.value.body) tags.push({ key: 'body', label: '+ 请求体' })
+  return tags
 })
 
 const availableMethods = computed(() => {
@@ -595,28 +630,40 @@ const syncUrlToParams = () => {
   if (!props.api) {
     // 独立模式：解析 URL 到 requestUrl，并提取 path 占位符
     const url = editableUrl.value.trim()
-    if (!url) { requestUrl.value = ''; return }
+    if (!url) {
+      requestUrl.value = ''
+      queryParameters.value = [{ name: '', value: '', enabled: true }]
+      pathParameters.value = []
+      return
+    }
     try {
       const urlObj = new URL(url)
       const pathname = decodeURIComponent(urlObj.pathname)
-      // 提取 query 参数
+      // 提取 query 参数（URL 中没有则清空）
       const entries = [...new URLSearchParams(urlObj.search).entries()]
       if (entries.length > 0) {
         queryParameters.value = entries.map(([name, value]) => ({ name, value, enabled: true }))
         queryParameters.value.push({ name: '', value: '', enabled: true })
+      } else {
+        queryParameters.value = [{ name: '', value: '', enabled: true }]
       }
-      // 提取 path 占位符 {paramName}
+      // 提取 path 占位符 {paramName}（URL 中没有则清空）
       const pathMatches = [...pathname.matchAll(/\{([^}]+)\}/g)]
       if (pathMatches.length > 0) {
         const newNames = pathMatches.map(m => m[1])
         const existingMap = new Map(pathParameters.value.map(p => [p.name, p]))
         pathParameters.value = newNames.map(name => existingMap.get(name) || { name, value: '', enabled: true })
         expandedSections.value.path = true
+      } else {
+        pathParameters.value = []
       }
       // requestUrl 保留原始模板（含占位符）
       requestUrl.value = urlObj.origin + pathname
     } catch {
       requestUrl.value = url
+      // URL 不合法时也同步清除参数（用户可能正在编辑中）
+      queryParameters.value = [{ name: '', value: '', enabled: true }]
+      pathParameters.value = []
     }
     return
   }
@@ -943,6 +990,18 @@ const extractFilename = (r: Response): string => {
 // ========== 状态管理 ==========
 
 const toggleSection = (s: keyof typeof expandedSections.value) => { expandedSections.value[s] = !expandedSections.value[s] }
+
+// 点击压缩标签按钮：展开对应区块并添加一行空参数（首次展开）
+const expandCollapsedSection = (key: 'path' | 'headers' | 'cookies' | 'body') => {
+  expandedSections.value[key] = true
+  if (key === 'path' && pathParameters.value.length === 0) {
+    pathParameters.value.push({ name: '', value: '', enabled: true })
+  } else if (key === 'headers' && !headerParameters.value.some(h => h.name)) {
+    headerParameters.value = [{ name: '', value: '', enabled: true }]
+  } else if (key === 'cookies' && !cookieParameters.value.some(c => c.name)) {
+    cookieParameters.value = [{ name: '', value: '', enabled: true }]
+  }
+}
 const addQueryParam = () => { queryParameters.value.push({ name: '', value: '', enabled: true }) }
 const removeQueryParam = (i: number) => { queryParameters.value.splice(i, 1) }
 const addPathParam = () => { pathParameters.value.push({ name: '', value: '', enabled: true }) }
@@ -1115,7 +1174,13 @@ onUnmounted(() => { closeAllConnections(true) })
 .toolbar-title { font-size: 14px; font-weight: 500; color: var(--color-text-secondary, #6b7280); }
 .toolbar-right { display: flex; align-items: center; gap: 8px; }
 .toolbar-btn { font-size: 12px; color: var(--color-text-secondary, #6b7280); }
-.action-btn { font-size: 12px; }
+.action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; font-weight: 500; box-shadow: none; transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease; }
+.action-btn :deep(.anticon), .send-btn :deep(.anticon) { font-size: 13px; }
+.secondary-action-btn { color: var(--color-text-secondary, #4b5563); background: #fff; border-color: var(--color-border, #d1d5db); }
+.secondary-action-btn:hover, .secondary-action-btn:focus { color: var(--color-primary, #10b981); background: var(--color-primary-bg, #ecfdf5); border-color: var(--color-primary, #10b981); }
+.reset-action-btn { padding-inline: 8px; }
+.code-action-btn { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
+.code-action-btn:hover, .code-action-btn:focus { color: #fff; background: var(--color-primary, #10b981); border-color: var(--color-primary, #10b981); }
 .back-link { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; transition: all 0.15s ease; }
 .back-link:hover { background: rgba(16, 185, 129, 0.06); color: #10b981; }
 
@@ -1129,7 +1194,16 @@ onUnmounted(() => { closeAllConnections(true) })
 .method-select { flex-shrink: 0; width: 110px; }
 .url-input { flex: 1; }
 :deep(.url-input .ant-input) { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
-.send-btn { flex-shrink: 0; }
+.send-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-width: 104px; height: 28px; padding-inline: 16px; border-radius: 6px; font-weight: 600; box-shadow: 0 1px 2px rgba(5, 150, 105, 0.18); }
+
+@media (max-width: 640px) {
+  .embedded-header { flex-direction: column; align-items: stretch; gap: 8px; }
+  .header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .header-actions .action-btn { width: 100%; }
+  .url-bar { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+  .method-select { width: 96px; }
+  .send-btn { grid-column: 1 / -1; width: 100%; }
+}
 
 .debugger-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 .debugger-body-embedded { flex-direction: column; overflow: visible; }
@@ -1163,7 +1237,23 @@ onUnmounted(() => { closeAllConnections(true) })
 .empty-text { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
 
 .curl-import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
-.curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+
+/* 压缩标签区 */
+.collapsed-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 20px 12px; }
+.request-panel-embedded .collapsed-tags { padding: 10px 0 12px; }
+.collapsed-tag-btn {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 12px; color: #6b7280;
+  background: transparent;
+  border: 1px dashed #d1d5db;
+  cursor: pointer; transition: all 0.15s ease;
+  line-height: 1.6;
+}
+.collapsed-tag-btn:hover {
+  color: #10b981; border-color: #10b981;
+  background: rgba(16, 185, 129, 0.06);
+}.curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
 
 /* 请求完整过程 */
 .full-transaction-panel { border-top: 1px solid var(--color-border-light, #f0f0f0); padding: 0 20px; }

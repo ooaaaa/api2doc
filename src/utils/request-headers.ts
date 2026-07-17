@@ -117,7 +117,8 @@ export function generateRequestHeaders(options: RequestHeadersOptions): Record<s
   }
 
   // 设置Content-Type（仅非GET/HEAD请求）
-  if (method !== 'GET' && method !== 'HEAD' && contentType) {
+  // multipart/form-data 不手动设置，由浏览器 fetch 自动生成（包含 boundary）
+  if (method !== 'GET' && method !== 'HEAD' && contentType && contentType !== 'multipart/form-data') {
     headers['Content-Type'] = contentType
   }
 

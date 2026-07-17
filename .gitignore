@@ -19,3 +19,6 @@ dist/
 package-lock.json
 yarn.lock
 
+
+# ai编程
+.omo

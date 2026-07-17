@@ -40,8 +40,9 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
 
   /**
    * 尝试从单个URL加载数据
+   * 返回成功的 spec 或失败的错误信息
    */
-  const tryFetchFromUrl = async (url: string): Promise<SwaggerSpec | null> => {
+  const tryFetchFromUrl = async (url: string): Promise<{ spec: SwaggerSpec } | { error: string }> => {
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -51,19 +52,19 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        return { error: `HTTP ${response.status}: ${response.statusText}` }
       }
       
       const spec = await response.json() as SwaggerSpec
       
       // 验证是否是有效的Swagger/OpenAPI文档
       if (!spec.paths || (!spec.openapi && !spec.swagger)) {
-        throw new Error('无效的Swagger/OpenAPI文档格式')
+        return { error: '无效的Swagger/OpenAPI文档格式' }
       }
       
-      return spec
-    } catch {
-      return null
+      return { spec }
+    } catch (e: any) {
+      return { error: e.message || '网络请求失败' }
     }
   }
 
@@ -78,23 +79,26 @@ export function useSwaggerData(swaggerUrl: string | string[]) {
     
     try {
       const urls = Array.isArray(swaggerUrl) ? swaggerUrl : [swaggerUrl]
+      const errors: string[] = []
       
       // 依次尝试每个URL
       for (const url of urls) {
-        const spec = await tryFetchFromUrl(url)
+        const result = await tryFetchFromUrl(url)
         
-        if (spec) {
-          swaggerSpec.value = spec
+        if ('spec' in result) {
+          swaggerSpec.value = result.spec
           actualUrl.value = url
           return
         }
+        
+        errors.push(`${url} — ${result.error}`)
       }
       
-      // 所有URL都失败
+      // 所有URL都失败，附带原始错误信息
       throw new Error(
         urls.length > 1
-          ? `无法从以下地址加载文档:\n${urls.join('\n')}`
-          : `无法加载文档: ${urls[0]}`
+          ? `无法从以下地址加载文档:\n${errors.join('\n')}`
+          : `无法加载文档: ${urls[0]}\n${errors[0]?.split(' — ')[1] || ''}`
       )
     } catch (e: any) {
       error.value = e.message

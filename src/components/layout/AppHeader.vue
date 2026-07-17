@@ -198,6 +198,9 @@
                 </a-space>
               </a-form-item>
             </a-form>
+            <p class="empty-guide-proxy" style="text-align: center; margin-top: 12px;">
+              默认支持本地代理，无需担心跨域问题
+            </p>
           </div>
         </template>
 

@@ -9,7 +9,7 @@
         <div class="error-detail-text">{{ error }}</div>
       </div>
       <div class="error-actions">
-        <a-button type="primary" size="large" @click="$emit('retry')">
+        <a-button type="primary" size="large" @click="handleRetry">
           重新加载
         </a-button>
       </div>
@@ -38,6 +38,11 @@ interface Emits {
 
 defineProps<Props>()
 defineEmits<Emits>()
+
+// 重新加载：跳转到当前地址栏 URL
+const handleRetry = () => {
+  window.location.href = window.location.href
+}
 </script>
 
 <style scoped>
@@ -100,6 +105,7 @@ defineEmits<Emits>()
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   word-break: break-word;
   line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .error-actions {
