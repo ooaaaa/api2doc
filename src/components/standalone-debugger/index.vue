@@ -247,25 +247,25 @@
           {{ currentMethod }} {{ transactionRequestPath }} → {{ request.responseStatus.value }} {{ transactionStatusText }}
         </span>
         <div class="transaction-actions" @click.stop>
-          <a-button size="small" type="text" @click="copyFullTransaction" class="action-btn">复制全部</a-button>
+          <a-button size="small" type="text" @click="copyFullTransaction" class="copy-all-btn">复制全部</a-button>
         </div>
       </div>
       <div v-show="transactionExpanded" class="transaction-content">
-        <div class="transaction-blocks">
-          <div class="transaction-block">
-            <div class="transaction-block-label">Request</div>
-            <pre class="transaction-raw"><span class="raw-request-line">{{ transactionRequestLine }}</span>
+        <!-- 请求部分 -->
+        <div class="transaction-block">
+          <div class="transaction-block-label">请求</div>
+          <pre class="transaction-raw"><span class="raw-request-line">{{ transactionRequestLine }}</span>
 <template v-for="(value, key) in actualRequestHeaders" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
 </template><template v-if="bodyContent">
 <span class="raw-body">{{ bodyContent }}</span></template></pre>
-          </div>
-          <div class="transaction-block">
-            <div class="transaction-block-label">Response</div>
-            <pre class="transaction-raw"><span class="raw-status-line">HTTP/1.1 {{ request.responseStatus.value }} {{ transactionStatusText }}</span>
+        </div>
+        <!-- 响应部分 -->
+        <div class="transaction-block">
+          <div class="transaction-block-label">响应</div>
+          <pre class="transaction-raw"><span class="raw-status-line">HTTP/1.1 {{ request.responseStatus.value }} {{ transactionStatusText }}</span>
 <template v-for="(value, key) in request.responseHeaders.value" :key="key"><span class="raw-header-name">{{ key }}</span>: <span class="raw-header-value">{{ value }}</span>
 </template><template v-if="request.responseResult.value">
 <span class="raw-body">{{ transactionResponseBody }}</span></template></pre>
-          </div>
         </div>
       </div>
     </div>
@@ -981,23 +981,24 @@ onUnmounted(() => {
 .curl-import-textarea { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
 
 /* 请求完整过程 */
-.full-transaction-panel { border-top: 1px solid var(--color-border-light, #f0f0f0); padding: 0 20px; }
-.full-transaction-embedded { padding: 0; margin-top: 12px; }
-.transaction-header { display: flex; align-items: center; gap: 8px; padding: 10px 0; cursor: pointer; user-select: none; }
-.collapse-icon { font-size: 10px; color: #9ca3af; margin-right: 4px; transition: transform 0.2s ease; display: inline-block; }
-.collapse-icon.expanded { transform: rotate(90deg); }
-.transaction-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
-.transaction-meta { font-size: 11px; color: var(--color-text-muted, #6b7280); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-.transaction-actions { margin-left: 12px; display: flex; align-items: center; gap: 4px; }
-.transaction-content { padding: 0 0 16px; }
-.transaction-blocks { display: flex; flex-direction: column; gap: 12px; }
+.full-transaction-panel { margin-top: 16px; padding: 0; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; overflow: hidden; }
+.full-transaction-embedded { margin-top: 16px; }
+.transaction-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; user-select: none; }
+.collapse-icon { font-size: 10px; color: #6b7280; margin-right: 4px; transition: transform 0.2s ease; display: inline-block; }
+.collapse-icon.expanded { transform: rotate(90deg); color: #10b981; }
+.transaction-title { font-size: 13px; font-weight: 600; color: #166534; }
+.transaction-meta { font-size: 11px; color: #4b5563; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.transaction-actions { margin-left: auto; display: flex; align-items: center; }
+.copy-all-btn { font-size: 11px; padding: 2px 10px; height: 24px; color: #166534; border: 1px solid #86efac; border-radius: 4px; background: #fff; }
+.copy-all-btn:hover { color: #fff; background: #10b981; border-color: #10b981; }
+.transaction-content { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
 .transaction-block { position: relative; }
-.transaction-block-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-primary, #4361ee); margin-bottom: 6px; padding: 2px 8px; background: var(--color-primary-bg, #f0f5ff); border-radius: 3px; display: inline-block; }
-.transaction-raw { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7; background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 0; white-space: pre-wrap; word-break: break-all; overflow-x: auto; max-height: 400px; overflow-y: auto; }
-.transaction-raw .raw-request-line, .transaction-raw .raw-status-line { font-weight: 700; color: var(--color-primary, #4361ee); }
+.transaction-block-label { font-size: 11px; font-weight: 600; color: #059669; text-transform: none; letter-spacing: 0; margin-bottom: 6px; padding-left: 2px; }
+.transaction-raw { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7; background: #fff; padding: 12px; border-radius: 6px; margin: 0; white-space: pre-wrap; word-break: break-all; overflow-x: auto; max-height: 400px; overflow-y: auto; border: 1px solid #dcfce7; }
+.transaction-raw .raw-request-line, .transaction-raw .raw-status-line { font-weight: 700; color: #059669; }
 .transaction-raw .raw-header-name { color: #8b5cf6; }
 .transaction-raw .raw-header-value { color: #333; }
-.transaction-raw .raw-body { color: #059669; }
+.transaction-raw .raw-body { color: #374151; }
 
 @media (max-width: 640px) {
   .embedded-header { flex-direction: column; align-items: stretch; gap: 8px; }
