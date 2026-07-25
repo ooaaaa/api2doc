@@ -8,6 +8,10 @@
         <span class="toolbar-title">API 调试器</span>
       </div>
       <div class="toolbar-right">
+        <a-button size="small" @click="openGlobalVariables" class="action-btn global-variable-action-btn" title="按 Key 自动填充接口中的同名参数">
+          <template #icon><KeyOutlined /></template>
+          设置全局变量<span v-if="enabledGlobalVariableCount > 0" class="global-variable-count">{{ enabledGlobalVariableCount }}</span>
+        </a-button>
         <a-button size="small" @click="openCurlImport" class="action-btn secondary-action-btn">
           <template #icon><ImportOutlined /></template>
           导入 cURL
@@ -28,6 +32,10 @@
     <div v-if="embedded" class="embedded-header">
       <span class="header-label">请求配置</span>
       <div class="header-actions">
+        <a-button size="small" @click="openGlobalVariables" class="action-btn global-variable-action-btn" title="按 Key 自动填充接口中的同名参数">
+          <template #icon><KeyOutlined /></template>
+          设置全局变量<span v-if="enabledGlobalVariableCount > 0" class="global-variable-count">{{ enabledGlobalVariableCount }}</span>
+        </a-button>
         <a-button size="small" @click="openCurlImport" class="action-btn secondary-action-btn">
           <template #icon><ImportOutlined /></template>
           导入 cURL
@@ -270,6 +278,42 @@
       </div>
     </div>
 
+    <!-- 全局变量弹窗 -->
+    <a-modal
+      v-model:open="globalVariablesVisible"
+      title="全局变量"
+      :width="680"
+      :mask-closable="false"
+      ok-text="保存"
+      cancel-text="取消"
+      @ok="saveGlobalVariableSettings"
+    >
+      <a-alert type="info" show-icon class="global-variable-help">
+        <template #message>使用说明</template>
+        <template #description>
+          <div>保存后会按 Key 自动填充接口中同名的 Path、Query、Header、Cookie 和 Form 字段，当前请求仍可手工修改。</div>
+          <div>Header Key 不区分大小写；Bearer Token 请使用 Key <code>Authorization</code>，Value 填写完整的 <code>Bearer token</code>。</div>
+          <div>变量会明文保存在当前浏览器，请勿保存生产环境长期有效的敏感凭证。</div>
+        </template>
+      </a-alert>
+      <div class="global-variable-list">
+        <div class="global-variable-row global-variable-row-header">
+          <span>启用</span><span>Key</span><span>Value</span><span>操作</span>
+        </div>
+        <div v-for="(variable, index) in globalVariableDraft" :key="index" class="global-variable-row">
+          <a-switch v-model:checked="variable.enabled" size="small" />
+          <a-input v-model:value="variable.key" placeholder="例如 Authorization" />
+          <a-input v-model:value="variable.value" placeholder="例如 Bearer token" />
+          <a-button type="text" danger size="small" @click="removeGlobalVariable(index)">删除</a-button>
+        </div>
+        <div v-if="globalVariableDraft.length === 0" class="global-variable-empty">暂无全局变量</div>
+      </div>
+      <a-button type="dashed" block @click="addGlobalVariable">
+        <template #icon><PlusOutlined /></template>
+        添加变量
+      </a-button>
+    </a-modal>
+
     <!-- 最大化弹窗 -->
     <a-modal v-model:open="maximizedModalVisible" title="响应结果" width="90%" :footer="null" :bodyStyle="{ padding: '16px', maxHeight: '80vh', overflow: 'auto' }">
       <ResponseViewer
@@ -348,7 +392,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { CodeOutlined, CopyOutlined, ImportOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons-vue'
+import { CodeOutlined, CopyOutlined, ImportOutlined, KeyOutlined, PlusOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons-vue'
 import RequestParams from '../api-debugger/RequestParams.vue'
 import RequestHeaders from '../api-debugger/RequestHeaders.vue'
 import RequestCookies from '../api-debugger/RequestCookies.vue'
@@ -363,6 +407,8 @@ import { generateRequestHeaders } from '../../utils/request-headers'
 import { useDebuggerRequest } from './composables/useDebuggerRequest'
 import { useDebuggerCurl } from './composables/useDebuggerCurl'
 import { useCookieJar } from '../../composables/useCookieJar'
+import { applyGlobalHeaderVariables, applyGlobalVariables, useGlobalVariables } from '../../composables/useGlobalVariables'
+import type { GlobalVariable } from '../../composables/useGlobalVariables'
 
 interface Props {
   embedded?: boolean
@@ -390,6 +436,10 @@ const editableUrl = ref('')
 const maximizedModalVisible = ref(false)
 const transactionExpanded = ref(false)
 const activeTab = ref<'params' | 'headers' | 'body' | 'cookies'>('params')
+const globalVariablesVisible = ref(false)
+const globalVariableDraft = ref<GlobalVariable[]>([])
+const { variables: globalVariables, saveVariables: saveGlobalVariables } = useGlobalVariables()
+const enabledGlobalVariableCount = computed(() => globalVariables.value.filter(item => item.enabled).length)
 
 // 参数数据
 const pathParameters = ref<DebuggerParameter[]>([])
@@ -642,6 +692,57 @@ const handleUrlPressEnter = () => {
 }
 const handleUrlBlur = () => { triggerUrlSync() }
 
+// ========== 全局变量 ==========
+const applyGlobalVariablesToCurrentRequest = () => {
+  const source = globalVariables.value.map(item => ({ ...item }))
+  pathParameters.value = applyGlobalVariables(pathParameters.value, source)
+  queryParameters.value = applyGlobalVariables(queryParameters.value, source)
+  headerParameters.value = applyGlobalHeaderVariables(headerParameters.value, source)
+  cookieParameters.value = applyGlobalVariables(cookieParameters.value, source)
+  formFields.value = formFields.value.map(field => field.type === 'file'
+    ? field
+    : applyGlobalVariables([field], source)[0])
+}
+
+const openGlobalVariables = () => {
+  const draft = globalVariables.value.map(item => ({ ...item }))
+  globalVariableDraft.value = draft.length > 0 ? draft : [{ key: '', value: '', enabled: true }]
+  globalVariablesVisible.value = true
+}
+
+const addGlobalVariable = () => {
+  globalVariableDraft.value.push({ key: '', value: '', enabled: true })
+}
+
+const removeGlobalVariable = (index: number) => {
+  globalVariableDraft.value.splice(index, 1)
+}
+
+const saveGlobalVariableSettings = () => {
+  const cleaned = globalVariableDraft.value
+    .filter(item => item.key.trim() || item.value)
+    .map(item => ({ ...item, key: item.key.trim() }))
+  if (cleaned.some(item => !item.key)) {
+    message.warning('全局变量的 Key 不能为空')
+    return
+  }
+  const normalizedKeys = cleaned.map(item => item.key.toLowerCase())
+  if (new Set(normalizedKeys).size !== normalizedKeys.length) {
+    message.warning('全局变量的 Key 不能重复')
+    return
+  }
+  try {
+    saveGlobalVariables(cleaned)
+  } catch {
+    message.error('全局变量保存失败，请检查浏览器存储权限')
+    return
+  }
+  if (props.api) initFromApi()
+  else applyGlobalVariablesToCurrentRequest()
+  globalVariablesVisible.value = false
+  message.success('全局变量已保存并应用')
+}
+
 // ========== 初始化与重置 ==========
 const initFromApi = () => {
   if (!props.api || !props.baseUrl) return
@@ -656,6 +757,8 @@ const initFromApi = () => {
 
   const savedBody = restoreFromStorage(props.api, currentMethod.value, 'body')
   if (savedBody) bodyContent.value = savedBody as string
+
+  applyGlobalVariablesToCurrentRequest()
 }
 
 watch(() => props.api, () => {
@@ -898,6 +1001,8 @@ onUnmounted(() => {
 .action-btn :deep(.anticon), .send-btn :deep(.anticon) { font-size: 13px; }
 .secondary-action-btn { color: var(--color-text-secondary, #4b5563); background: #fff; border-color: var(--color-border, #d1d5db); }
 .secondary-action-btn:hover, .secondary-action-btn:focus { color: var(--color-primary, #10b981); background: var(--color-primary-bg, #ecfdf5); border-color: var(--color-primary, #10b981); }
+.global-variable-action-btn { color: #4b5563; background: #fffdf7; border-color: #e5dfd0; }
+.global-variable-action-btn:hover, .global-variable-action-btn:focus { color: #6b5a2b; background: #fff9e8; border-color: #d8c99d; }
 .reset-action-btn { padding-inline: 8px; }
 .code-action-btn { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
 .code-action-btn:hover, .code-action-btn:focus { color: #fff; background: var(--color-primary, #10b981); border-color: var(--color-primary, #10b981); }
@@ -975,6 +1080,16 @@ onUnmounted(() => {
 .empty-response { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px; padding: 40px; }
 .empty-icon { margin-bottom: 16px; opacity: 0.6; }
 .empty-text { font-size: 14px; color: #6b7280; margin-bottom: 4px; }
+
+/* 全局变量 */
+.global-variable-count { min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: #f6f1df; color: #79662f; font-size: 10px; font-weight: 600; }
+.global-variable-help { margin-bottom: 16px; }
+.global-variable-help :deep(.ant-alert-description) { font-size: 12px; line-height: 1.7; }
+.global-variable-help code { padding: 1px 4px; border-radius: 3px; background: rgba(0, 0, 0, 0.05); }
+.global-variable-list { margin-bottom: 12px; }
+.global-variable-row { display: grid; grid-template-columns: 44px minmax(140px, 1fr) minmax(200px, 1.5fr) 48px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.global-variable-row-header { margin-bottom: 6px; color: #6b7280; font-size: 12px; }
+.global-variable-empty { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
 
 /* cURL */
 .curl-import-tip { font-size: 13px; color: #6b7280; margin-bottom: 12px; }

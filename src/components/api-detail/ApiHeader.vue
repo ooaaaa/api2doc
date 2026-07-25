@@ -9,21 +9,35 @@
         <span v-else class="method-tag-large">{{ api.method }}</span>
       </div>
       <div class="api-title-actions">
-        <a class="doc-action-link" @click="$emit('copyMarkdown')" title="复制为 Markdown">
+        <a class="doc-action-link" @click="$emit('copyMarkdown')" title="复制完整 Markdown，便于提供给 AI">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
           </svg>
           <span>复制 MD</span>
         </a>
-        <a class="doc-action-link" @click="$emit('downloadWord')" title="下载 Word 文档">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>下载 Word</span>
-        </a>
+        <a-dropdown :disabled="exporting" placement="bottomRight">
+          <a class="doc-action-link" :class="{ disabled: exporting }" @click.prevent title="下载当前接口文档">
+            <LoadingOutlined v-if="exporting" spin />
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>{{ exporting ? '导出中' : '导出文档' }}</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </a>
+          <template #overlay>
+            <a-menu @click="handleDocumentExport">
+              <a-menu-item key="pdf">下载为 PDF</a-menu-item>
+              <a-menu-item key="word">下载为 Word</a-menu-item>
+              <a-menu-item key="markdown">下载为 Markdown</a-menu-item>
+              <a-menu-item key="json">下载为 JSON</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </div>
     </div>
     <div class="api-path-line">
@@ -36,18 +50,26 @@
 </template>
 
 <script setup lang="ts">
+import { LoadingOutlined } from '@ant-design/icons-vue'
+import type { DocumentFormat } from '../../utils/document-download'
+
 interface Props {
   api: any
+  exporting: boolean
 }
 
 interface Emits {
   (e: 'copyPath'): void
   (e: 'copyMarkdown'): void
-  (e: 'downloadWord'): void
+  (e: 'exportDocument', format: DocumentFormat): void
 }
 
+const emit = defineEmits<Emits>()
 defineProps<Props>()
-defineEmits<Emits>()
+
+function handleDocumentExport(event: { key: string | number }): void {
+  emit('exportDocument', String(event.key) as DocumentFormat)
+}
 </script>
 
 <style scoped>

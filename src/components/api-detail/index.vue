@@ -5,7 +5,12 @@
       <a-tabs v-model:activeKey="activeMainTab" class="main-tabs-top">
         <!-- 文档 Tab -->
         <a-tab-pane key="doc" tab="文档">
-          <ApiHeader :api="api" @copy-path="copyPath" @copy-markdown="handleCopyMarkdown" @download-word="handleDownloadWord" />
+          <ApiHeader
+            :api="api"
+            @copy-path="copyPath"
+            @copy-markdown="handleCopyMarkdown"
+            @export-document="handleExportDocument"
+          />
           
           <!-- 接口类型提示 -->
           <a-alert v-if="apiType !== 'http'" :type="getApiTypeAlertType()" show-icon style="margin-bottom: 16px">
@@ -167,7 +172,9 @@ import ParameterTable from './ParameterTable.vue'
 import { useApiParser } from '../../composables/useApiParser'
 import { useCodeGenerator } from './composables/useCodeGenerator'
 import { getExampleValue, generateExampleFromTree } from '../../utils/example-utils'
-import { downloadCurrentApiAsWord, copyCurrentApiAsMarkdown } from '../../utils/doc-export'
+import type { ApiDocument, DocumentFormat } from '../../utils/document-download'
+import { downloadApiDocument } from '../../utils/document-download'
+import { copyCurrentApiAsMarkdown } from '../../utils/doc-export'
 
 const props = defineProps<{
   api: any
@@ -518,14 +525,28 @@ const copyPath = () => {
 }
 
 // 文档导出
-const handleCopyMarkdown = () => {
-  const md = copyCurrentApiAsMarkdown(props.api, props.baseUrl)
-  navigator.clipboard.writeText(md)
-  message.success('Markdown 已复制到剪贴板')
+const handleCopyMarkdown = async () => {
+  const markdown = copyCurrentApiAsMarkdown(props.api, props.baseUrl)
+  await navigator.clipboard.writeText(markdown)
+  message.success('完整 Markdown 已复制，可直接提供给 AI')
 }
 
-const handleDownloadWord = () => {
-  downloadCurrentApiAsWord(props.api.summary || '接口文档')
+const handleExportDocument = async (format: DocumentFormat) => {
+  try {
+    await downloadApiDocument(
+      format,
+      props.api as ApiDocument,
+      {
+        title: props.api.summary || '接口文档',
+        description: props.api.description,
+      },
+      props.baseUrl,
+      props.schemas,
+    )
+    message.success('接口文档下载完成')
+  } catch {
+    message.error('接口文档导出失败，请重试')
+  }
 }
 
 // 获取API类型的Alert类型

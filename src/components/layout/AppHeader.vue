@@ -38,8 +38,29 @@
         </a-input>
       </div>
 
-      <!-- 右侧：调试器 + GitHub 项目链接 -->
+      <!-- 右侧：文档导出 + 调试器 + GitHub 项目链接 -->
       <div class="header-right">
+        <a-dropdown :disabled="!hasDocuments || exportingDocuments" placement="bottomRight">
+          <a
+            class="document-export-link"
+            :class="{ disabled: !hasDocuments || exportingDocuments }"
+            @click.prevent
+            title="导出全部 API 文档"
+          >
+            <LoadingOutlined v-if="exportingDocuments" spin />
+            <DownloadOutlined v-else />
+            <span>{{ exportingDocuments ? '导出中' : '导出文档' }}</span>
+            <DownOutlined class="export-arrow" />
+          </a>
+          <template #overlay>
+            <a-menu @click="handleDocumentExport">
+              <a-menu-item key="pdf">下载为 PDF</a-menu-item>
+              <a-menu-item key="word">下载为 Word</a-menu-item>
+              <a-menu-item key="markdown">下载为 Markdown</a-menu-item>
+              <a-menu-item key="json">下载为 JSON</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
         <a 
           class="debugger-link"
           @click="$emit('openDebugger')"
@@ -237,10 +258,13 @@ import {
   EditOutlined,
   DeleteOutlined,
   DownOutlined,
+  DownloadOutlined,
+  LoadingOutlined,
   ImportOutlined,
   ExportOutlined,
 } from '@ant-design/icons-vue'
 import type { ServiceConfig } from '../../config'
+import type { DocumentFormat } from '../../utils/document-download'
 import Api2DocLogo from '../Api2DocLogo.vue'
 
 interface Props {
@@ -253,6 +277,8 @@ interface Props {
   services: ServiceConfig[]
   activeServiceId: string | null
   isProxyMode: boolean
+  hasDocuments: boolean
+  exportingDocuments: boolean
 }
 
 interface Emits {
@@ -264,6 +290,7 @@ interface Emits {
   'removeService': [id: string]
   'importConfig': [json: string]
   'exportConfig': []
+  'exportDocuments': [format: DocumentFormat]
   'openDebugger': []
 }
 
@@ -338,6 +365,10 @@ function handleRemove(id: string) {
 
 function handleExport() {
   emit('exportConfig')
+}
+
+function handleDocumentExport(event: { key: string | number }) {
+  emit('exportDocuments', String(event.key) as DocumentFormat)
 }
 
 function triggerFileInput() {
@@ -490,6 +521,7 @@ function readAndImportFile(file: File) {
   flex-shrink: 0;
 }
 
+.document-export-link,
 .debugger-link {
   display: inline-flex;
   align-items: center;
@@ -505,8 +537,19 @@ function readAndImportFile(file: File) {
   transition: all var(--transition-fast);
 }
 
+.document-export-link:hover,
 .debugger-link:hover {
   background: var(--color-primary-bg, rgba(16, 185, 129, 0.08));
+}
+
+.document-export-link.disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.export-arrow {
+  font-size: 9px;
 }
 
 .github-link {

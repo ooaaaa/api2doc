@@ -9,6 +9,8 @@
           :services="services"
           :active-service-id="activeServiceId"
           :is-proxy-mode="isProxyMode"
+          :has-documents="allApis.length > 0"
+          :exporting-documents="exportingDocuments"
           @update:search-text="searchText = $event"
           @go-home="goToHome"
           @switch-service="$emit('switchService', $event)"
@@ -17,6 +19,7 @@
           @remove-service="$emit('removeService', $event)"
           @import-config="$emit('importConfig', $event)"
           @export-config="$emit('exportConfig')"
+          @export-documents="handleExportDocuments"
           @open-debugger="$emit('openDebugger')"
         />
         
@@ -61,13 +64,18 @@
           />
         </a-layout>
       </a-layout>
+      <div v-if="exportingDocuments" class="document-export-loading" role="status" aria-live="polite">
+        <a-spin size="large" />
+        <div class="document-export-loading-title">{{ exportStatusText }}</div>
+        <div class="document-export-loading-hint">文档较多时需要一些时间，请勿重复操作</div>
+      </div>
     </div>
   </a-config-provider>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { theme } from 'ant-design-vue'
+import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { theme, message } from 'ant-design-vue'
 import { 
   useSwaggerData, 
   useApiParser, 
@@ -77,6 +85,8 @@ import {
 } from '../composables'
 import { DEFAULT_THEME } from '../constants'
 import type { ServiceConfig } from '../config'
+import type { DocumentFormat, ApiDocumentGroup } from '../utils/document-download'
+import { downloadAllDocuments } from '../utils/document-download'
 import AppHeader from './layout/AppHeader.vue'
 import AppSidebar from './layout/AppSidebar.vue'
 import AppContent from './layout/AppContent.vue'
@@ -261,6 +271,46 @@ const handleMenuClickWrapper = (event: any) => {
   handleMenuClick(event, allApis.value)
 }
 
+const exportingDocuments = ref(false)
+const exportProgress = ref({ current: 0, total: 0 })
+const exportStatusText = computed(() => {
+  const { current, total } = exportProgress.value
+  return total > 0 ? `正在生成 PDF（${current}/${total}）` : '正在准备导出文档...'
+})
+
+const handleExportDocuments = async (format: DocumentFormat) => {
+  if (!swaggerSpec.value || allApis.value.length === 0) {
+    message.warning('暂无可导出的 API 文档')
+    return
+  }
+  if (exportingDocuments.value) return
+
+  exportingDocuments.value = true
+  exportProgress.value = { current: 0, total: 0 }
+  await nextTick()
+
+  try {
+    await downloadAllDocuments(
+      format,
+      apiTags.value as ApiDocumentGroup[],
+      {
+        title: apiInfo.value.title || props.title || 'API 文档',
+        version: apiInfo.value.version,
+        description: apiInfo.value.description,
+      },
+      baseUrl.value,
+      swaggerSpec.value,
+      progress => { exportProgress.value = progress },
+    )
+    message.success('全部文档下载完成')
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : '未知错误'
+    message.error(`文档导出失败：${reason}`)
+  } finally {
+    exportingDocuments.value = false
+  }
+}
+
 // 处理重试：重新加载数据并恢复 URL 状态
 const handleRetry = async () => {
   await loadSwaggerSpec()
@@ -294,6 +344,7 @@ onUnmounted(() => {
 
 <style scoped>
 .api2doc {
+  position: relative;
   height: 100%;
   flex: 1;
   overflow: hidden;
@@ -301,6 +352,30 @@ onUnmounted(() => {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.document-export-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(2px);
+}
+
+.document-export-loading-title {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.document-export-loading-hint {
+  color: var(--color-text-muted);
+  font-size: 12px;
 }
 
 /* Ant Design Layout 高度约束 */

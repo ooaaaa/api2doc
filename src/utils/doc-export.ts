@@ -4,6 +4,17 @@
  */
 
 import { buildCurlCommand } from './curl-generator'
+import { downloadHtmlAsPdf } from './document-download'
+
+/**
+ * 将当前接口文档下载为 PDF
+ */
+export async function downloadCurrentApiAsPdf(title: string): Promise<void> {
+  const docHtml = captureDocTabHtml()
+  if (!docHtml) return
+
+  await downloadHtmlAsPdf(docHtml, `${title || '接口文档'}.pdf`)
+}
 
 /** Word 文档的 HTML 壳子 */
 const WORD_HTML_HEADER = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
